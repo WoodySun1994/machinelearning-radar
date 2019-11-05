@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2019.10.13
+更新：“2019.11.5
 #功能：雷达获取的mat数据对航迹进行提取保存
 #auther： woody sun
 '''
@@ -10,6 +10,8 @@
 
 import numpy as np
 from scipy.io import loadmat
+import os
+import glob
 
 '''临时航迹关联函数'''
 # 将当前点与已经存在的临时航迹列表进行比较，返回匹配后的航迹号。若无匹配航迹则返回-1
@@ -20,10 +22,11 @@ def TarckRelate(cur_tar,track_infor):
     for i in range(0,7):                                #与8条临时航迹列表相继匹配
         #print(abs(cur_tar[2] - track_infor[i, 2]))
         #print(cur_tar[4] - track_infor[i, 4])
-        if (3 >= abs(cur_tar[2] - track_infor[i, 2])):  #判断速度差距是否在3以内
-            if (0.5 >= cur_tar[4] - track_infor[i, 4]): #同时判断纵向距离差距是否在0.5以内
-                TarckRelaFlag = i                       #满足以上两个条件则认为航迹相互关联
-                return TarckRelaFlag
+        if (10 >= abs(cur_tar[2] - track_infor[i, 2])):  #判断速度差距是否在3以内
+            if (10 >= cur_tar[4] - track_infor[i, 4]): #同时判断纵向距离差距是否在0.5以内
+                if (2 >= cur_tar[3] - track_infor[i, 3]):  # 同时判断横向距离差距是否在3以内
+                    TarckRelaFlag = i                       #满足以上两个条件则认为航迹相互关联
+                    return TarckRelaFlag
     return -1
 
 '''临时航迹新建函数'''
@@ -83,8 +86,31 @@ def TrackPlot():
     pass
     return
 
+'''删除所有Tracks文件'''
+# folders location
+
+def DelTracksFiles():
+    #   read all the files under the folder
+    path = 'G:\\Graduate\\CodeForGuaduate\\pysource\\tracks'
+    fileNames = glob.glob(path + r'\*')
+
+    for fileName in fileNames:
+        try:
+            #           delete file
+            os.remove(fileName)
+        except:
+            try:
+                #               delete empty folders
+                os.rmdir(fileName)
+            except:
+                #               Not empty, delete files under folders
+                delfile(fileName)
+                #               now, folders are empty, delete it
+                os.rmdir(fileName)
+
 '''main函数'''
 def main():
+    DelTracksFiles()  #删除所有Tracks文件
     cur_tar = []         #当前处理点迹信息
     tmp_track_total = 0  # 当前临时航迹数量，临时航迹最多维持8条
     # 临时航迹信息:1临时航迹号 2饥饿时间  3目标速度 4目标横坐标 5目标纵坐标 6是否位于危险区域 7目标角度 8确定航迹编号 9、10mat文件中的编号
@@ -95,15 +121,15 @@ def main():
     TRACK_NO = 0  # 确定航迹号
     POINT_NO = 0  # 确定航迹中记录的点迹号
     endnum = 0  # 记录删除的已关联成功航迹数
-    savetracknum = 23  # 需要保存的确定航迹数量
+    savetracknum = 27  # 需要保存的确定航迹数量
 
     # 保存的所有关联成功的点迹信息： 1确定航迹号 2点迹号 3目标速度 4目标横坐标 5目标纵坐标 6是否位于危险区域 7目标角度
-    save_point_list = np.zeros((5000,10))
-    save_track_tmp = np.zeros((30,500,10))   #临时保存矩阵
-    SaveData = np.zeros((500,10))   #保存数据矩阵
+    save_point_list = np.zeros((10000,10))
+    save_track_tmp = np.zeros((30,1000,10))   #临时保存矩阵
+    SaveData = np.zeros((1000,10))   #保存数据矩阵
 
-    for iii in range(1,60):   #读取mat文件
-        path = './matfile/features_' + str(iii) + '.mat'
+    for iii in range(1,153):   #读取mat文件
+        path = './matfile/11_1/features_' + str(iii) + '.mat'
         tar_infor = loadmat(path)
         for jjj in range(0,50): #读入MAT中的50个数据点
             cur_tar = tar_infor['featuer_save'][jjj]         #当前处理目标点信息
@@ -136,29 +162,31 @@ def main():
                         tmp_track_total = tmp_track_total - 1#当前临时航迹数量减1
             #if endnum != 0:
             #    pass
-            if (endnum >= 20):#结束的稳定航迹数达到设定条数，则调整保存当前航迹信息
-                endnum = 0
-                #保存航迹
-                for j in range(0,savetracknum):#保存savetracknum条航迹
-                    i = 0
-                    n = 0
-                    while (save_point_list[i, 0] != 0):#遍历确定航迹列表中每一个点
-                        if (j == save_point_list[i, 0] - 1): #保存第j条航迹的点迹信息
-                            save_track_tmp[j, n,:] = save_point_list[i,:]
-                            n = n + 1
-                        i = i + 1#读取下一个目标点的值
+    #if (endnum >= savetracknum):#结束的稳定航迹数达到设定条数，则调整保存当前航迹信息
+     #   endnum = 0
+        #保存航迹
+    for j in range(0,endnum):#保存savetracknum条航迹
+        i = 0
+        n = 0
+        while (save_point_list[i, 0] != 0):#遍历确定航迹列表中每一个点
+            if (j == save_point_list[i, 0] - 1): #保存第j条航迹的点迹信息
+                save_track_tmp[j, n,:] = save_point_list[i,:]
+                n = n + 1
+            i = i + 1#读取下一个目标点的值
 
 
-                #将航迹点按航迹保存
-                for j in range(0,savetracknum):
-                    i = 0
-                    while (save_track_tmp[j, i, 0] != 0 ): #直到保存完当前航迹的最后一个点迹
-                        SaveData[i,:] = save_track_tmp[j, i,:]
-                        i = i + 1
-                    if (i > 5):#如果该航迹的点迹数超过5，则保存航迹信息
-                        savepath = './tracks/'+'Tracks_'+ str(j) + '.txt'
-                        np.savetxt(savepath,SaveData,fmt='%.3f')
-                        SaveData = np.zeros((500,10))#清空保存数据
+        #将航迹点按航迹保存
+        for j in range(0,endnum):
+            i = 0
+            while (save_track_tmp[j, i, 0] != 0 ): #直到保存完当前航迹的最后一个点迹
+                SaveData[i,:] = save_track_tmp[j, i,:]
+                i = i + 1
+            if (i > 100):#如果该航迹的点迹数超过20，则保存航迹信息
+                savepath = './tracks/'+'Tracks_'+ str(j) + '.txt'
+                np.savetxt(savepath,SaveData,fmt='%.3f')
+                SaveData = np.zeros((1000,10))#清空保存数据
+    pass
+
 
 if __name__ == '__main__':
     main()
