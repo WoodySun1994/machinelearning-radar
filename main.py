@@ -18,17 +18,15 @@ import matplotlib.pyplot as plt
     hung   Angle  Speed  Target  X_position  Y_position
 0    0.0    0.0     0.0    0.0     0.0         0.0
 1    0.0    0.0     0.0    0.0     0.0         0.0
-2    0.0    0.0     0.0    0.0     0.0         0.0
 …   ……  ……    ……      ………      ………
-18   0.0    0.0     0.0    0.0     0.0         0.0
-19   0.0    0.0     0.0    0.0     0.0         0.0
+4   0.0    0.0     0.0    0.0     0.0         0.0
 '''
-data = np.zeros((20,6))
+data = np.zeros((5,6))
 listname = ['hung','Angle','Speed','Target','X_position','Y_position']
 tmp_tracks_list = pd.DataFrame(data = data,columns = listname)
 
 '''临时航迹数'''
-tmp_tracks_total = 0
+tmp_tracks_total = 5
 
 #产生噪声点，t为每个量测产生的虚假点
 def FackPointsGene(t):
@@ -48,7 +46,7 @@ def FackPointsGene(t):
     return FakePoints    #返回虚假点
 
 #产生每帧的量测点
-def FeatureCreat(save_en = True,plot_en = True):
+def FrameCreat(save_en = True,plot_en = True):
     tracks_no = [3, 12, 20]
     j = 0
     '''颜色设置'''
@@ -196,13 +194,14 @@ def TarckRelate(frame_infor,tmp_tracks_list, tmp_tracks_total):
 '''临时航迹新建函数'''
 # 如果当前点和已存在的所有航迹都不匹配，则重新建立一条新的航迹，返回临时航迹列表
 #输入：frame_infor 当前帧目标点信息，tmp_tracks_list临时航迹信息列表
-#输出：更新后的[frame_infor,tmp_tracks_list,tmp_tracks_total]
+#输出：更新后的[tmp_tracks_list,tmp_tracks_total]
 def TrackDevelop(frame_infor,tmp_tracks_list,tmp_tracks_total):
-    frame_infor.insert(0,'hung',2)    #所有新建航迹的饥饿值
-    new_tmp_tracks = [tmp_tracks_list,frame_infor]
+    newname = ['hung','Angle','Speed','Target','X_position','Y_position']
+    tmp_frame_infor = frame_infor.reindex(columns = newname,fill_value = 2)    #所有新建航迹的饥饿值
+    new_tmp_tracks = [tmp_tracks_list,tmp_frame_infor]
     tmp_tracks_list = pd.concat(new_tmp_tracks,ignore_index = True)
     tmp_tracks_total = tmp_tracks_list.shape[0]
-    return [frame_infor,tmp_tracks_list,tmp_tracks_total]
+    return [tmp_tracks_list,tmp_tracks_total]
 
 '''临时航迹信息删除函数'''
 #当临时航迹饥饿值低于1时，则将该临时航迹信息删除
@@ -235,9 +234,23 @@ def filter():
     return
 
 
-# FeatureCreat(save_en=True, plot_en= True)
-frame_infor = frameread(0)
-print(frame_infor)
+#FrameCreat(save_en=True, plot_en= False)
+for i in range(496):
+    frame_infor = frameread(i)
+    [frame_infor,tmp_tracks_list] = TarckRelate(frame_infor, tmp_tracks_list, tmp_tracks_total)
+    [tmp_tracks_list, track_total] = TrackDelet(tmp_tracks_list, tmp_tracks_total)
+    [tmp_tracks_list, tmp_tracks_total] = TrackDevelop(frame_infor, tmp_tracks_list, tmp_tracks_total)
+
+    [x, y, fakex, fakey] = TrackPlotXY(tmp_tracks_list)
+
+    plt.ion()
+    plt.scatter(x, y, s=15, c='r')
+    plt.scatter(fakex, fakey, s=5,c = 'gray')
+    plt.xlim((-10, 10))
+    plt.ylim((0, 30))
+    plt.pause(0.001)
+    plt.cla()#清屏
+
 # for jjj in range(0, 150):  # 读入MAT中的150个数据点,如果不够则退出当前循环
 #     try:
 #         cur_tar = tar_infor.loc[jjj]  # 当前处理目标点信息
