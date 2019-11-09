@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2019.11.09
+更新：“2019.11.08
 #功能：显示选择的航迹并加入虚假点
 #auther： woody sun
 '''
@@ -15,16 +15,16 @@ import matplotlib.pyplot as plt
 
 '''
     新建临时航迹列表
-   Angle  Speed  Target  X_position  Y_position
-0    0.0    0.0     0.0         0.0         0.0
-1    0.0    0.0     0.0         0.0         0.0
-2    0.0    0.0     0.0         0.0         0.0
+    hung   Angle  Speed  Target  X_position  Y_position
+0    0.0    0.0     0.0    0.0     0.0         0.0
+1    0.0    0.0     0.0    0.0     0.0         0.0
+2    0.0    0.0     0.0    0.0     0.0         0.0
 …   ……  ……    ……      ………      ………
-19   0.0    0.0     0.0         0.0         0.0
-20   0.0    0.0     0.0         0.0         0.0
+18   0.0    0.0     0.0    0.0     0.0         0.0
+19   0.0    0.0     0.0    0.0     0.0         0.0
 '''
-data = np.zeros((20,5))
-listname = ['Angle','Speed','Target','X_position','Y_position']
+data = np.zeros((20,6))
+listname = ['hung','Angle','Speed','Target','X_position','Y_position']
 tmp_tracks_list = pd.DataFrame(data = data,columns = listname)
 
 '''临时航迹数'''
@@ -163,7 +163,7 @@ def frameread(iii):
 '''临时航迹关联函数'''
 # 将当前点与已经存在的临时航迹列表进行比较，返回匹配后的航迹号。若无匹配航迹则返回-1
 #输入：frame_infor当前点信息   tmp_tracks_list临时航迹列表   tmp_tracks_total临时航迹数量
-#输出：匹配的航迹号Tarck_rela，若无匹配则Tarck_rela返回-1
+#输出：更新后的[frame_infor,tmp_tracks_list]
 def TarckRelate(frame_infor,tmp_tracks_list, tmp_tracks_total):
     Tarck_rela = -1
     for i in range(tmp_tracks_total):                                #与临时航迹列表相继匹配
@@ -174,67 +174,58 @@ def TarckRelate(frame_infor,tmp_tracks_list, tmp_tracks_total):
         tmp = frame_infor[(frame_infor['Speed'] > speed - 3) & (frame_infor['Speed'] < speed + 3)]
         tmp = tmp[(tmp['X_position'] > X_position - 1) & (tmp['X_position'] < X_position + 1)]
         tmp = tmp[(tmp['Y_position'] > Y_position - 1) & (tmp['Y_position'] < Y_position + 1)]
-        if tmp.shape[0] == 1:
+
+        if tmp.shape[0] == 0:  #当没有匹配目标时
+            continue
+        elif tmp.shape[0] == 1:
             Tarck_rela = tmp_tracks_list.index[i]
-        elif tmp.shape[0] > 1:
-            pass  #当有多个匹配目标时
         else:
-            pass
-    return Tarck_rela
+            Tarck_rela = tmp_tracks_list.index[i]
+            print(tmp.shape[0])          #当有多个匹配目标时,量测点选择
+
+        print(tmp)
+        tmp_tracks_list.iloc[[Tarck_rela],0] = tmp_tracks_list.iloc[[Tarck_rela],0] + 3#更新hung值
+        tmp_tracks_list.iloc[[Tarck_rela],1:] = tmp.values   #将匹配点的信息加入临时航迹列表
+
+        frame_infor = frame_infor.drop(tmp.index)
+    tmp_tracks_list['hung'] = tmp_tracks_list['hung'] - 1#所有航迹饥饿值-1
+    return [frame_infor,tmp_tracks_list]
+
+
 
 '''临时航迹新建函数'''
 # 如果当前点和已存在的所有航迹都不匹配，则重新建立一条新的航迹，返回临时航迹列表
-#输入：cur_tar 当前目标点信息，track_infor临时航迹信息列表，cur_tracknum当前临时列表航迹数
-#输出：更新后的临时航迹列表
-def TrackDevelop(cur_tar,track_infor,cur_tracknum):
-    track_infor[cur_tracknum, 2: 7] = cur_tar[2: 7]#保存特征信息
-    track_infor[cur_tracknum, 1] = 2#新建航迹的饥饿值为2
-    track_infor[cur_tracknum, 0] = cur_tracknum#临时航号为临时航迹列表最后一个的值
-    track_infor[cur_tracknum, 7] = 0#确定航迹号为0
-    track_infor[cur_tracknum, 8: 10] = cur_tar[0: 2]#保存帧号信息
-    return track_infor
-
-'''临时航迹信息更新函数'''
-#更新临时航迹表中对应航迹的最新点的特征，并增加对应航迹的饥饿值，返回更新后的临时航迹列表
-#输入：cur_tar当前目标点信息，track_infor临时航迹列表，cur_tracknum当前临时航迹列表中航迹数量TrackRelaFlag匹配成功的临时航迹号
-#输出：更新后的临时航迹表
-def TrackFeed(cur_tar,track_infor,cur_tracknum,TrackRelaFlag):
-    for i in range (0,cur_tracknum):
-        if (i == TrackRelaFlag):    #对匹配成功的航迹
-            track_infor[i, 2: 7] = cur_tar[2: 7]#更新匹配航迹信息
-            track_infor[i, 8: 10] = cur_tar[0: 2]
-            track_infor[i, 1] = track_infor[i, 1] + 4#饥饿值加4
-            if (track_infor[i, 1] > 10):#饥饿值最多10
-                track_infor[i, 1] = 10
-        else:
-            track_infor[i, 1] = track_infor[i, 1] - 1#饥饿值减1
-    return track_infor
-
-'''确定航迹信息保存函数'''
-#当临时航迹列表中的航迹饥饿值达到10时，则认为是一条确定航迹，保存所有与此航迹匹配的航迹点的信息
-#输入：save_track确定航迹列表 track_infor临时航迹列表 TRACK_NO 确定航迹号
-#输出：更新后的确定航迹表
-def TrackSave(save_track,track_infor,TRACK_NO):    #t->track_infor
-    save_track[TRACK_NO, 0] = track_infor[5]#保存确定航迹的临时航迹号
-    save_track[TRACK_NO, 2: 7] = track_infor[0: 5]#保存航迹列表对应的临时航迹信息
-    save_track[TRACK_NO, 7: 9] = track_infor[6: 8]#保存航迹列表对应的临时航迹信息
-    return save_track
-
+#输入：frame_infor 当前帧目标点信息，tmp_tracks_list临时航迹信息列表
+#输出：更新后的[frame_infor,tmp_tracks_list,tmp_tracks_total]
+def TrackDevelop(frame_infor,tmp_tracks_list,tmp_tracks_total):
+    frame_infor.insert(0,'hung',2)    #所有新建航迹的饥饿值
+    new_tmp_tracks = [tmp_tracks_list,frame_infor]
+    tmp_tracks_list = pd.concat(new_tmp_tracks,ignore_index = True)
+    tmp_tracks_total = tmp_tracks_list.shape[0]
+    return [frame_infor,tmp_tracks_list,tmp_tracks_total]
 
 '''临时航迹信息删除函数'''
-#当临时航迹饥饿值低于1时，则讲该临时航迹信息删除
-#输入：track_infor临时航迹信息列表 track_no当前需要删除的临时航迹号 track_total当前临时航迹总数 endnum已删除的确定航迹数量
-#输出：track_infor更新后的临时航迹表，endnum已删除的确定航迹数量
-def TrackDelet(track_infor,track_no,track_total,endnum):
+#当临时航迹饥饿值低于1时，则将该临时航迹信息删除
+#输入：tmp_tracks_list临时航迹信息列表 track_total当前临时航迹总数
+#输出：更新后的[frame_infor,track_total]
+def TrackDelet(tmp_tracks_list,tmp_tracks_total):
+    tmp_tracks_list = tmp_tracks_list[tmp_tracks_list['hung'] > 0]
+    tmp_tracks_total = tmp_tracks_list.shape[0]
+    return [tmp_tracks_list,tmp_tracks_total]
 
-
-    return  [track_infor,endnum]
-
-'''确定航迹绘制函数'''
+'''确定航迹坐标返回函数'''
 #绘制确定航迹
-def TrackPlot():
-    pass
-    return
+def TrackPlotXY(tmp_tracks_list):
+    plot_point_list = tmp_tracks_list[tmp_tracks_list['hung'] > 5]#选择出饥饿值大于5的所有点
+    fake_plot_list = plot_point_list[plot_point_list['Target']  == 0]
+    real_plot_list = plot_point_list[plot_point_list['Target']  == 1]
+
+    fakex = fake_plot_list.loc[:,'X_position']
+    fakey = fake_plot_list.loc[:,'Y_position']
+    x = real_plot_list.loc[:,'X_position']
+    y = real_plot_list.loc[:,'Y_position']
+
+    return [x,y,fakex,fakey]
 
 
 '''航迹滤波函数'''
