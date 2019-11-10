@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2019.11.09
+更新：“2019.11.10
 #功能：显示选择的航迹并加入虚假点
 #auther： woody sun
 '''
@@ -12,6 +12,7 @@ import pandas as pd
 import numpy as np
 import scipy.io as io
 import matplotlib.pyplot as plt
+import math
 
 '''
     新建临时航迹列表
@@ -46,7 +47,7 @@ def FackPointsGene(t):
     return FakePoints    #返回虚假点
 
 #产生每帧的量测点
-def FrameCreat(save_en = True,plot_en = True):
+def FrameCreat(save_en = True,plot_en = True,fakerate = 20):
     tracks_no = [3, 12, 20]
     j = 0
     '''颜色设置'''
@@ -102,8 +103,8 @@ def FrameCreat(save_en = True,plot_en = True):
             y.append(TRACKS.loc['c']['Y_position'].loc[i])
         except:
             pass
-        #产生仿真虚假航迹，每帧噪点数为10
-        FackPoints = FackPointsGene(10)
+        #产生仿真虚假航迹，默认每帧噪点数为20
+        FackPoints = FackPointsGene(fakerate)
         fakex.append(FackPoints['X_position'])
         fakey.append(FackPoints['Y_position'])
         # '''保存mat文件'''
@@ -155,8 +156,20 @@ def frameread(iii):
         names = ['Angle','Speed', 'Target', 'X_position','Y_position']
         tar_infor =  pd.read_csv(path, sep=' ', names=names)
     except:
-        pass
+        print('Frame Read Error!')
     return tar_infor
+
+#最邻近算法
+def NN(tmp_points, last_xpos, last_ypos):#最邻近算法
+
+    dis = math.pow(tmp_points.iloc[0].loc['X_position'] - last_xpos, 2) + math.pow(tmp_points.iloc[0].loc['Y_position'] - last_ypos,2)
+    pointno = 0
+    for i in range(1, tmp_points.shape[0]):
+        dis1 = math.pow(tmp_points.iloc[i].loc['X_position'] - last_xpos, 2) + math.pow(tmp_points.iloc[i].loc['Y_position'] - last_ypos, 2)
+        if dis1 < dis:
+            dis = dis1
+            pointno = i
+    return tmp_points.iloc[[pointno]]
 
 '''临时航迹关联函数'''
 # 将当前点与已经存在的临时航迹列表进行比较，返回匹配后的航迹号。若无匹配航迹则返回-1
@@ -177,14 +190,11 @@ def TarckRelate(frame_infor,tmp_tracks_list, tmp_tracks_total):
             continue
         elif tmp.shape[0] == 1:
             Tarck_rela = tmp_tracks_list.index[i]
-        else:
-            Tarck_rela = tmp_tracks_list.index[i]
-            print(tmp.shape[0])          #当有多个匹配目标时,量测点选择
+        elif tmp.shape[0] >1:
+            tmp = NN(tmp, tmp_tracks_list.at[i, 'X_position'], tmp_tracks_list.at[i, 'Y_position'])
 
-        print(tmp)
         tmp_tracks_list.iloc[[Tarck_rela],0] = tmp_tracks_list.iloc[[Tarck_rela],0] + 3#更新hung值
         tmp_tracks_list.iloc[[Tarck_rela],1:] = tmp.values   #将匹配点的信息加入临时航迹列表
-
         frame_infor = frame_infor.drop(tmp.index)
     tmp_tracks_list['hung'] = tmp_tracks_list['hung'] - 1#所有航迹饥饿值-1
     return [frame_infor,tmp_tracks_list]
@@ -209,6 +219,7 @@ def TrackDevelop(frame_infor,tmp_tracks_list,tmp_tracks_total):
 #输出：更新后的[frame_infor,track_total]
 def TrackDelet(tmp_tracks_list,tmp_tracks_total):
     tmp_tracks_list = tmp_tracks_list[tmp_tracks_list['hung'] > 0]
+    tmp_tracks_list.index = range(tmp_tracks_list.shape[0])
     tmp_tracks_total = tmp_tracks_list.shape[0]
     return [tmp_tracks_list,tmp_tracks_total]
 
@@ -234,8 +245,9 @@ def filter():
     return
 
 
-#FrameCreat(save_en=True, plot_en= False)
-for i in range(496):
+#FrameCreat(save_en=True, plot_en= True, fakerate = 50)
+
+for i in range(10):
     frame_infor = frameread(i)
     [frame_infor,tmp_tracks_list] = TarckRelate(frame_infor, tmp_tracks_list, tmp_tracks_total)
     [tmp_tracks_list, track_total] = TrackDelet(tmp_tracks_list, tmp_tracks_total)
@@ -243,17 +255,12 @@ for i in range(496):
 
     [x, y, fakex, fakey] = TrackPlotXY(tmp_tracks_list)
 
-    plt.ion()
-    plt.scatter(x, y, s=15, c='r')
-    plt.scatter(fakex, fakey, s=5,c = 'gray')
-    plt.xlim((-10, 10))
-    plt.ylim((0, 30))
-    plt.pause(0.001)
-    plt.cla()#清屏
 
-# for jjj in range(0, 150):  # 读入MAT中的150个数据点,如果不够则退出当前循环
-#     try:
-#         cur_tar = tar_infor.loc[jjj]  # 当前处理目标点信息
-#         #print(cur_tar)
-#     except:
-#         break
+    plt.scatter(x, y, s=15, c='r')
+    plt.scatter(fakex, fakey, s=15,c = 'gray',marker='x')
+#plt.ion()
+plt.xlim((-10, 10))
+plt.ylim((0, 30))
+#plt.pause(0.001)
+#plt.cla()#清屏
+plt.show()
