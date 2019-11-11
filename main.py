@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2019.11.10
+更新：“2019.11.11
 #功能：显示选择的航迹并加入虚假点
 #auther： woody sun
 '''
@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import math
 import os
 import glob
-
+import sys
 
 '''
     新建临时航迹列表
@@ -31,7 +31,6 @@ tmp_tracks_list = pd.DataFrame(data = data,columns = listname)
 
 '''临时航迹数'''
 tmp_tracks_total = 5
-
 
 '''删除所有framesfile文件'''
 # folders location
@@ -233,7 +232,7 @@ def TarckRelate(frame_infor,tmp_tracks_list, tmp_tracks_total):
         if tmp_tracks_list.iat[Track_rela,0] > 7:  #hung值最大为7
              tmp_tracks_list.iat[Track_rela,0] = 7
         tmp_tracks_list.iloc[[Track_rela],1:] = tmp.values   #将匹配点的信息加入临时航迹列表
-        frame_infor = frame_infor.drop(tmp.index)
+        frame_infor = frame_infor.drop(tmp.index)            #从帧数据中删除匹配成功的航迹点
     tmp_tracks_list['hung'] = tmp_tracks_list['hung'] - 1#所有航迹饥饿值-1
     return [frame_infor,tmp_tracks_list]
 
@@ -243,9 +242,9 @@ def TarckRelate(frame_infor,tmp_tracks_list, tmp_tracks_total):
 #输出：更新后的[tmp_tracks_list,tmp_tracks_total]
 def TrackDevelop(frame_infor,tmp_tracks_list,tmp_tracks_total):
     newname = ['hung','Angle','Speed','Target','X_position','Y_position']
-    tmp_frame_infor = frame_infor.reindex(columns = newname,fill_value = 2)    #所有新建航迹的饥饿值
+    tmp_frame_infor = frame_infor.reindex(columns = newname,fill_value = 2)    #设置所有新建航迹的饥饿值为2
     new_tmp_tracks = [tmp_tracks_list,tmp_frame_infor]
-    tmp_tracks_list = pd.concat(new_tmp_tracks,ignore_index = True)
+    tmp_tracks_list = pd.concat(new_tmp_tracks,ignore_index = True)             #将新建航迹加入临时航迹列表
     tmp_tracks_total = tmp_tracks_list.shape[0]
     return [tmp_tracks_list,tmp_tracks_total]
 
@@ -261,17 +260,22 @@ def TrackDelet(tmp_tracks_list,tmp_tracks_total):
 
 '''确定航迹坐标返回函数'''
 #绘制确定航迹
-def TrackPlotXY(tmp_tracks_list):
+# frame_infor 当前帧目标点信息
+def TrackPlotXY(frame_infor,tmp_tracks_list):
     plot_point_list = tmp_tracks_list[tmp_tracks_list['hung'] > 5]#选择出饥饿值大于5的所有点
     fake_plot_list = plot_point_list[plot_point_list['Target']  == 0]#选择其中的错误关联点
     real_plot_list = plot_point_list[plot_point_list['Target']  == 1]#选择其中的正确关联点
 
+    miss_plot_list = frame_infor[frame_infor['Target'] == 1]   #选择其中漏警的数据点
+
+    missx = miss_plot_list.loc[:,'X_position']
+    missy = miss_plot_list.loc[:,'Y_position']
     fakex = fake_plot_list.loc[:,'X_position']
     fakey = fake_plot_list.loc[:,'Y_position']
     x = real_plot_list.loc[:,'X_position']
     y = real_plot_list.loc[:,'Y_position']
 
-    return [x,y,fakex,fakey]
+    return [x,y,fakex,fakey,missx,missy]
 
 '''航迹滤波函数'''
 #滤波函数
@@ -280,23 +284,29 @@ def filter():
     return
 
 
+FrameCreat(save_en=True, plot_en= True, fakerate = 50,sample_rate = 5)
 
-#FrameCreat(save_en=True, plot_en= True, fakerate = 50,sample_rate = 5)
-
-for i in range(10):
+total_frame = 55
+process_output = sys.stdout
+for i in range(total_frame):
     frame_infor = frameread(i)
+    count = i/(total_frame-1)*100
+    process_output.write(f'\r PROCESSING percent:{count:.0f}%')
     [frame_infor,tmp_tracks_list] = TarckRelate(frame_infor, tmp_tracks_list, tmp_tracks_total)
     [tmp_tracks_list, track_total] = TrackDelet(tmp_tracks_list, tmp_tracks_total)
     [tmp_tracks_list, tmp_tracks_total] = TrackDevelop(frame_infor, tmp_tracks_list, tmp_tracks_total)
 
-    [x, y, fakex, fakey] = TrackPlotXY(tmp_tracks_list)
+    [x, y, fakex, fakey,missx,missy] = TrackPlotXY(frame_infor,tmp_tracks_list)
 
 
     plt.scatter(x, y, s=15, c='r')
     plt.scatter(fakex, fakey, s=15,c = 'gray',marker='x')
+    plt.scatter(missx, missy, s=15,c = 'g',marker='x')
 #plt.ion()
+process_output.flush
 plt.xlim((-10, 10))
 plt.ylim((0, 30))
+
 #plt.cla()#清屏
 plt.show()
 plt.pause(0)
