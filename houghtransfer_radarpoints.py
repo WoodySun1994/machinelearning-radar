@@ -2,9 +2,11 @@ import numpy as np
 import math
 import pandas as pd
 import matplotlib.pyplot as plt
+import mylearn
 
-#霍夫直线检测
-def hough_line(x_idxs, y_idxs, width=30, length=30, angle_step=1):
+
+#霍夫直线变换
+def hough_line(x_idxs, y_idxs, width=30, length=30, angle_step=4,hgplot_en = True,thres_rate = 0.8):
     # Rho and Theta ranges
     thetas = np.deg2rad(np.arange(-90.0, 90.0, angle_step))
 
@@ -27,54 +29,28 @@ def hough_line(x_idxs, y_idxs, width=30, length=30, angle_step=1):
             rho = diag_len + int(round(x * cos_t[t_idx] + y * sin_t[t_idx]))
             #            rho = int(round(x * cos_t[t_idx] + y * sin_t[t_idx]))
             accumulator[rho, t_idx] += 1
+    if hgplot_en == True:
+        plt.imshow(accumulator, cmap='jet', extent=[np.rad2deg(thetas[0]), np.rad2deg(thetas[-1]), rhos[0], rhos[-1]])
+        plt.title('Hough transform')
+        plt.xlabel('Angles (degrees)')
+        plt.ylabel('Distance (pixels)')
+        plt.axis('image')
+        plt.show()
+    #选取大于阈值的直线的theta&rho
+    maxvalue = np.max(accumulator)
+    thres_rate = 0.8
+    threshold = int(thres_rate * maxvalue)
 
-    return accumulator, thetas, rhos
+    rho = []
+    theta = []
+    print(accumulator.shape)
+    for i in range(accumulator.shape[0]):
+        for j in range(accumulator.shape[1]):
+            if accumulator[i, j] > threshold:  # 霍夫空间满足一条直线的点数超过阈值时
+                rho.append(rhos[i])
+                theta.append(thetas[j])
 
-
-hough_frame = pd.DataFrame([])
-x1 = [0, 1, 2, 3, 4, -10]
-y1 = [10, 10, 10, 10, 10, 10]
-
-x2 = [0, 1, 2, 3, 4, 5, 6]
-y2 = [7, 8, 9, 10, 11, 12, 13]
-
-x3 = [5, 5, 5, 5, 5, 5]
-y3 = [23, 24, 25, 26, 27, 28]
-
-x4 = [-8, -7, -6, -5, -4, -3, -2, -1, 0]
-y4 = [22, 21, 20, 19, 18, 17, 16, 15, 14]
-
-x_idxs = x4 + x3 + x2 + x1
-y_idxs = y4 + y3 + y2 + y1
-
-plt.scatter(x_idxs, y_idxs, s=2)
-
-plt.xlim((-15, 15))
-plt.ylim((0, 30))
-plt.show()
-
-[accumulator, thetas, rhos] = hough_line(x_idxs, y_idxs, angle_step=3)
-plt.imshow(accumulator, cmap='jet', extent=[np.rad2deg(thetas[0]), np.rad2deg(thetas[-1]), rhos[0], rhos[-1]])
-plt.title('Hough transform')
-plt.xlabel('Angles (degrees)')
-plt.ylabel('Distance (pixels)')
-plt.axis('image')
-plt.show()
-
-maxvalue = np.max(accumulator)
-
-thres_rate = 0.6
-threshold = int(thres_rate * maxvalue)
-
-rho = []
-theta = []
-print(accumulator.shape)
-for i in range(accumulator.shape[0]):
-    for j in range(accumulator.shape[1]):
-        if accumulator[i, j] > threshold:  # 霍夫空间满足一条直线的点数超过阈值时
-            rho.append(rhos[i])
-            theta.append(thetas[j])
-
+    return theta, rho
 
 # 融合theta差不超过20°的直线
 def theta_fuse(theta, rho, fusetheta):
@@ -115,21 +91,84 @@ def theta_fuse(theta, rho, fusetheta):
             rho[d] = 0
     return [theta, rho]
 
-
-theta, rho = theta_fuse(theta, rho, 30)
-sin_theta = np.sin(theta)
-cos_theta = np.cos(theta)
-
 #画出检测出的直线
-for t in range(len(theta)):
-    if sin_theta[t] > 0:
-        xx = [100, (rho[t] - 100 * sin_theta[t]) / cos_theta[t]]
-        yy = [(rho[t] - 100 * cos_theta[t]) / sin_theta[t], 100]
-    else:
-        xx = [-100, (rho[t] - 100 * sin_theta[t]) / cos_theta[t]]
-        yy = [(rho[t] + 100 * cos_theta[t]) / sin_theta[t], 100]
-    plt.plot(xx, yy)
-plt.scatter(x_idxs, y_idxs, s=2)
-plt.xlim((-15, 15))
-plt.ylim((-0, 30))
-plt.show()
+def lineplot(theta,rho):
+    sin_theta = np.sin(theta)
+    cos_theta = np.cos(theta)
+    for t in range(len(theta)):
+        if sin_theta[t] > 0:
+            xx = [100, (rho[t] - 100 * sin_theta[t]) / cos_theta[t]]
+            yy = [(rho[t] - 100 * cos_theta[t]) / sin_theta[t], 100]
+        else:
+            xx = [-100, (rho[t] - 100 * sin_theta[t]) / cos_theta[t]]
+            yy = [(rho[t] + 100 * cos_theta[t]) / sin_theta[t], 100]
+        plt.plot(xx, yy)
+    plt.xlim((-15, 15))
+    plt.ylim((-0, 30))
+    plt.show()
+    return
+
+#画出点迹
+def Pointsplot(x,y):
+    plt.scatter(x, y, s=2)
+    plt.xlim((-15, 15))
+    plt.ylim((0, 30))
+    return
+
+#读取帧数据
+def frameread(iii):
+    try:
+        path = 'G:/Graduate/CodeForGuaduate/pysource/framesfile/frame_' + str(iii) + '.txt'
+        names = ['Angle','Speed', 'Target', 'X_position','Y_position']
+        tar_infor =  pd.read_csv(path, sep=' ', names=names)
+    except:
+        pass
+    return tar_infor
+
+def main():
+    ##########################################################
+    ############     通过读取帧文件获取数据    ###############
+    ##########################################################
+    hough_frame = pd.DataFrame([])
+    #读取数据
+    for i in range(5):
+        frame_infor = frameread(i)
+        infor = [hough_frame,frame_infor]
+        hough_frame = pd.concat(infor,ignore_index = True)
+
+
+    hough_frame = mylearn.MyClassify(hough_frame)#利用机器学习算法对点迹进行分类
+    x_idxs = hough_frame['X_position']
+    y_idxs = hough_frame['Y_position']
+    x_idxs.index = range(len(x_idxs))
+    y_idxs.index = range(len(y_idxs))
+
+    ##########################################################
+
+
+    ##########################################################
+    ################通过自定义点获取数据######################
+    ##########################################################
+    # x1 = [0, 1, 2, 3, 4, -10]
+    # y1 = [10, 10, 10, 10, 10, 10]
+    #
+    # x2 = [0, 1, 2, 3, 4, 5, 6]
+    # y2 = [7, 8, 9, 10, 11, 12, 13]
+    #
+    # x3 = [5, 5, 5, 5, 5, 5]
+    # y3 = [23, 24, 25, 26, 27, 28]
+    #
+    # x4 = [-8, -7, -6, -5, -4, -3, -2, -1, 0]
+    # y4 = [22, 21, 20, 19, 18, 17, 16, 15, 14]
+    #
+    # x_idxs = x4 + x3 + x2 + x1
+    # y_idxs = y4 + y3 + y2 + y1
+    ##########################################################
+    [theta, rho] = hough_line(x_idxs, y_idxs, angle_step=1)#霍夫直线检测
+    theta, rho = theta_fuse(theta, rho, 30)#角度融合
+    Pointsplot(x_idxs, y_idxs)  # 画出需要检测直线的点
+    lineplot(theta,rho)  #根据参数画出直线
+    return
+
+if __name__ == '__main__':
+    main()
