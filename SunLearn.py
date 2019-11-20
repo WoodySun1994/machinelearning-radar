@@ -1,3 +1,12 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+'''
+更新：“2019.11.20
+#功能：对雷达数据帧进行分类的相关函数
+#auther： woody sun
+'''
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,7 +21,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.neighbors import KNeighborsClassifier
 
-#数据集处理函数
+#数据集处理函数，返回 [X_train,X_test,Y_train,Y_test]
 def DataSetProc(track_total = 35,scale_en = True,poly_en = True):
     # 采集航迹点
     track_total = 35  # 设置需要采集的航迹数量
@@ -34,18 +43,17 @@ def DataSetProc(track_total = 35,scale_en = True,poly_en = True):
     #数据集
     #产生正样本集
     labels = ['Track_No','Point_No','Alarm','Mat','Frame']
-    Pointset = AllTracks.drop(labels = labels,axis = 1,inplace = False)#去掉原始数据标签
+    Pointset = AllTracks.drop(labels = labels,axis = 1,inplace = False)#去掉部分原始数据标签
     Pointset.columns = ['data','data','data','data','Target']
     Pointset['Target'] = 1
-    #Pointset       #正样本集
 
     #产生噪声点
     names = ['Speed','X_position','Y_position','Angle','Target']
     FakePoints = pd.DataFrame(data = None,columns = names)
     randomspeed = [random.randint(-8,15)for i in range(3000)]
-    randomxpos = [round(10.0 * random.uniform(-1,1),3)for i in range(3000)]
-    randomypos = [round(40.0 * random.random(),3)for i in range(3000)]
+    randomypos = [round(40.0 * random.random(), 3) for i in range(3000)]
     randomangle = [round(random.uniform(-30,70),1) for i in range(3000)]
+    randomxpos = randomypos * np.tan(np.deg2rad(randomangle))
 
     FakePoints['Speed'] = randomspeed
     FakePoints['X_position'] = randomxpos
@@ -55,11 +63,9 @@ def DataSetProc(track_total = 35,scale_en = True,poly_en = True):
 
     names = ['data','data','data','data','Target']
     FakePoints.columns = names
-    #FakePoints    #负样本集
     #合并数据点
     frames = [Pointset,FakePoints]#合并点迹信息
     DATASET = pd.concat(frames,ignore_index = True)
-    #DATASET    #数据集
     #分离数据集
     X_train,X_test,Y_train,Y_test = train_test_split(DATASET['data'],DATASET['Target'],random_state = 0)
     print("X_train shape : {}".format(X_train.shape))
@@ -97,8 +103,3 @@ def MyClassify(framedata):
         if(Ypred == 0):
             framedata = framedata.drop(i)
     return framedata
-
-
-
-
-
