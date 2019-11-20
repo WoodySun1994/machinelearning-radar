@@ -1,9 +1,18 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+'''
+更新：“2019.11.20
+#功能：雷达数据帧进行霍夫变换相关函数
+#auther： woody sun
+'''
+
 import numpy as np
 import math
 import pandas as pd
 import matplotlib.pyplot as plt
-import mylearn
-
+import SunLearn
+import Frame
 
 #霍夫直线变换
 def hough_line(x_idxs, y_idxs, width=30, length=30, angle_step=4,hgplot_en = True,thres_rate = 0.8):
@@ -115,16 +124,6 @@ def Pointsplot(x,y):
     plt.ylim((0, 30))
     return
 
-#读取帧数据
-def frameread(iii):
-    try:
-        path = 'G:/Graduate/CodeForGuaduate/pysource/framesfile/frame_' + str(iii) + '.txt'
-        names = ['Angle','Speed', 'Target', 'X_position','Y_position']
-        tar_infor =  pd.read_csv(path, sep=' ', names=names)
-    except:
-        pass
-    return tar_infor
-
 def main():
     ##########################################################
     ############     通过读取帧文件获取数据    ###############
@@ -132,12 +131,12 @@ def main():
     hough_frame = pd.DataFrame([])
     #读取数据
     for i in range(5):
-        frame_infor = frameread(i)
+        frame_infor = Frame.frameread(i)
         infor = [hough_frame,frame_infor]
         hough_frame = pd.concat(infor,ignore_index = True)
 
 
-    hough_frame = mylearn.MyClassify(hough_frame)#利用机器学习算法对点迹进行分类
+    hough_frame = SunLearn.MyClassify(hough_frame)#利用机器学习算法对点迹进行分类
     x_idxs = hough_frame['X_position']
     y_idxs = hough_frame['Y_position']
     x_idxs.index = range(len(x_idxs))
