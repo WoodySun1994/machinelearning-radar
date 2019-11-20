@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2019.11.5
+更新：“2019.11.20
 #功能：雷达获取的mat数据对航迹进行提取保存
 #auther： woody sun
 '''
@@ -12,6 +12,8 @@ import numpy as np
 from scipy.io import loadmat
 import os
 import glob
+
+
 
 '''临时航迹关联函数'''
 # 将当前点与已经存在的临时航迹列表进行比较，返回匹配后的航迹号。若无匹配航迹则返回-1
@@ -88,7 +90,6 @@ def TrackPlot():
 
 '''删除所有Tracks文件'''
 # folders location
-
 def DelTracksFiles():
     #   read all the files under the folder
     path = 'G:\\Graduate\\CodeForGuaduate\\pysource\\tracks'
@@ -186,7 +187,6 @@ def main():
                 np.savetxt(savepath,SaveData,fmt='%.3f')
                 SaveData = np.zeros((1000,10))#清空保存数据
     pass
-
 
 if __name__ == '__main__':
     main()
