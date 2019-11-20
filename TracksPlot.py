@@ -2,26 +2,18 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2019.11.06
-#功能：显示选择的航迹
+更新：“2019.11.20
+#功能：选择航迹进行显示
 #auther： woody sun
 '''
 
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
+
 plt.ion()
-
-
-# 采集航迹点
-plot_en = 1  # 设置是否需要画出航迹
-track_total = 35  # 设置需要采集的航迹数量
-
 tracks_no = [3, 12, 20]
 j = 0
-'''颜色设置'''
-# colors = "bgrcmykw"
-# color_index = 0
-
 for i in tracks_no:
 
     path = 'G:/Graduate/CodeForGuaduate/pysource/tracks/Tracks_' + str(i) + '.txt'
@@ -31,9 +23,9 @@ for i in tracks_no:
     except:
         continue
     tracks = tracks[~tracks['Track_No'].isin([0])]  # 删除当前航迹中所有track_No中为0的点
-    if i == 20:#调整航迹
-        tracks['X_position'] = tracks['X_position'] - 5
-
+    if i == 20:#调整第20条航迹
+        tracks['X_position'] = tracks['X_position'] - 5   #平移5m
+        tracks['Angle'] = np.rad2deg(np.arctan(tracks['X_position'] /tracks['Y_position']))
     if j == 0:
         frame1 = tracks
         length1 = tracks.shape[0]
@@ -74,3 +66,5 @@ for i in range(t):#输出所有序列
     plt.xlim((-10, 10))
     plt.ylim((0, 30))
     plt.pause(0.001)
+
+
