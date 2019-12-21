@@ -7,6 +7,11 @@
 random.seed(a = None, version = 2)<br>
 初始化伪随机数生成器。a为种子设置参数，默认为系统时钟。
 
+random.seed(10)
+random.randint(0,10)
+random.randint(0,10)
+每次产生相同的随机数
+
 random.getstate()<br>
 返回当前生成器的内部状态对象
 
