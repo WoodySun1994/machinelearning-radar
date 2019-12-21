@@ -40,19 +40,25 @@ class RealPtGenerator(RealPoint):
             self.speed = self.speed = round(speed + self.accelerate, 2)
             self.y = round(y - self.speed, 2)
             self.angle = round(angle, 3)
-            self.x = round(y * math.tan(self.angle), 2)
+            self.x = round(x - speed * math.tan(self.angle), 2)
         elif self.movetype == 'AL':#加速直线运动
             self.accelerate = round(accelerate, 2)
             self.speed = round(speed + self.accelerate, 2)
             self.y = round(y - self.speed, 2)
             self.angle = round(angle, 3)
-            self.x = round(y * math.tan(self.angle), 2)
+            self.x = round(x - speed * math.tan(self.angle), 2)
         elif self.movetype == 'UT': #匀速转弯运动
-            self.angle = round(angle + angle/2, 3)
+            self.angle = round(angle + (angle/4), 3)
+            if self.angle > 1.22:  #转弯角度不超过正负70°
+                self.angle = 1.22
+
+            elif self.angle < -1.22:
+                self.angle = -1.22
             self.accelerate = 0
-            self.speed = round(speed, 2)
+            self.speed = round(speed + self.accelerate, 2)
             self.y = round(y - self.speed, 2)
-            self.x = round(y * math.tan(self.angle), 2)
+
+            self.x = round(x - speed * math.tan(self.angle), 2)
 
         self.color = 'red'
         self.flag = 1
@@ -72,6 +78,3 @@ class FakePtGenerator(FakePoint):
 
     def display(self):
         print("(x,y): (", self.x, ",", self.y, ")", "   speed:", self.speed, "  angle:", self.angle)
-
-
-
