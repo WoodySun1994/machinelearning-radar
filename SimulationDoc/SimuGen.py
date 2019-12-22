@@ -3,13 +3,13 @@ import  matplotlib.pyplot as plt
 import numpy as np
 
 AutoTestEn = False   #自动测试
-AutoTestSetting = {'realtracknum': 6, 'faketracknum':1, 'framenum':5}
-AutoTestData = [{'movtype':'UT', "x":-18.0, "y":20.0,'speed':0.94, 'angle':-0.25, 'accelerate':0},
-                {'movtype':'UT', "x":-5.9, "y":37.0,'speed':0.83, 'angle':0.61, 'accelerate':0},
-                {'movtype':'AL', "x":10.0, "y":36.0,'speed':0.12, 'angle':0.00, 'accelerate':0.3},
-                {'movtype':'AL', "x": 20.0, "y":15.0,'speed':0.2, 'angle':0.9, 'accelerate':0.15},
-                {'movtype':'UL', "x":0.23, "y":39.0,'speed':0.93, 'angle':0.01, 'accelerate':0},
-                {'movtype':'UL', "x":18.50, "y":25.0,'speed':0.83, 'angle':0.54, 'accelerate':0}
+AutoTestSetting = {'realtracknum': 6, 'faketracknum':50, 'framenum':10}
+AutoTestData = [{'movtype':'UT', "x":-12.0, "y":30.0,'speed':0.14, 'angle':-10, 'accelerate':0},
+                {'movtype':'UT', "x":12, "y":37.0,'speed':0.13, 'angle': 4, 'accelerate':0},
+                {'movtype':'AL', "x":10.0, "y":36.0,'speed':0.12, 'angle':0, 'accelerate':0.3},
+                {'movtype':'AL', "x": 20.0, "y":15.0,'speed':0.2, 'angle': 20, 'accelerate':0.15},
+                {'movtype':'UL', "x":0.0, "y":39.0,'speed':0.3, 'angle': 40, 'accelerate':0},
+                {'movtype':'UL', "x":18.50, "y":25.0,'speed':0.23, 'angle': 10, 'accelerate':0}
                 ]
 
 class FrameInfor:
@@ -80,12 +80,11 @@ class FrameInfor:
         i = 0
         savedata = []
         for point in self.points_list:
-            savedata.append([point.x, point.y, point.speed, point.angle, point.flag])
+            '''Angle, Speed, Target, X_position, Y_position'''
+            savedata.append([point.angle,point.speed,point.flag,point.x, point.y])
             i += 1
         savepath = "./simufile/simufile_" + str(self.frameno) + '.txt'
         np.savetxt(savepath,savedata,fmt='%.3f')
-
-        #file_handle = open("./simfile/")
 
 
 class SimuData:
