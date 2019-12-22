@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2019.11.20
-#功能：显示选择的航迹并加入虚假点
+更新：“2019.12.22
+#功能：航迹关联多目标假设算法
 #auther： woody sun
 '''
 
@@ -54,23 +54,23 @@ def TarckRelate(frame_infor,tmp_tracks_list, tmp_tracks_total):
         X_position = tmp_tracks_list.at[i, 'X_position']
         Y_position = tmp_tracks_list.at[i, 'Y_position']
 
-        tmp = frame_infor[(frame_infor['Speed'] > speed - 3) & (frame_infor['Speed'] < speed + 3)]
+        tmp = frame_infor[(frame_infor['Speed'] > speed - 2) & (frame_infor['Speed'] < speed + 2)]
         tmp = tmp[(tmp['X_position'] > X_position - 1) & (tmp['X_position'] < X_position + 1)]
-        tmp = tmp[(tmp['Y_position'] > Y_position - 1) & (tmp['Y_position'] < Y_position + 1)]
+        tmp = tmp[(tmp['Y_position'] > Y_position - 1) & (tmp['Y_position'] < Y_position + 0.5)]
 
         if tmp.shape[0] == 0:  #当没有匹配目标时
             continue
-        elif tmp.shape[0] == 1:
+        elif tmp.shape[0] == 1: #当只有一个匹配目标时，返回匹配上的航迹index
             Track_rela = tmp_tracks_list.index[i]
-        elif tmp.shape[0] >1:
+        elif tmp.shape[0] >1: #当有多个目标时，使用最邻近算法，选取波门内最近的目标，并返回匹配上的航迹index
             Track_rela = tmp_tracks_list.index[i]
             tmp = NN(tmp, tmp_tracks_list.at[i, 'X_position'], tmp_tracks_list.at[i, 'Y_position'])
 
         tmp_tracks_list.iloc[[Track_rela],0] = tmp_tracks_list.iloc[[Track_rela],0] + 3#更新hung值
-        if tmp_tracks_list.iat[Track_rela,0] > 7:  #hung值最大为7
+        if tmp_tracks_list.iat[Track_rela,0] > 7:  #hung值最大为6
              tmp_tracks_list.iat[Track_rela,0] = 7
         tmp_tracks_list.iloc[[Track_rela],1:] = tmp.values   #将匹配点的信息加入临时航迹列表
-        frame_infor = frame_infor.drop(tmp.index)            #从帧数据中删除匹配成功的航迹点
+        frame_infor = frame_infor.drop(tmp.index)            #从帧数据中删除匹配成功的航迹点，在剩下的点中继续与其他临时航迹相匹配
     tmp_tracks_list['hung'] = tmp_tracks_list['hung'] - 1#所有航迹饥饿值-1
     return [frame_infor,tmp_tracks_list]
 
@@ -89,22 +89,26 @@ def TrackDevelop(frame_infor,tmp_tracks_list,tmp_tracks_total):
 '''临时航迹信息删除函数'''
 #当临时航迹饥饿值低于1时，则将该临时航迹信息删除
 #输入：tmp_tracks_list临时航迹信息列表 track_total当前临时航迹总数
-#输出：更新后的[frame_infor,track_total]
+#输出：更新后的[frame_infor,track_total]以及删除的点迹信息。[frame_infor,track_total,delete_points]
 def TrackDelet(tmp_tracks_list,tmp_tracks_total):
+    delete_points = tmp_tracks_list[tmp_tracks_list['hung'] < 1]
     tmp_tracks_list = tmp_tracks_list[tmp_tracks_list['hung'] > 0]
     tmp_tracks_list.index = range(tmp_tracks_list.shape[0])
     tmp_tracks_total = tmp_tracks_list.shape[0]
-    return [tmp_tracks_list,tmp_tracks_total]
+    return [tmp_tracks_list,tmp_tracks_total,delete_points]
 
 '''确定航迹坐标返回函数'''
 #绘制确定航迹
 # frame_infor 当前帧目标点信息
-def TrackPlotXY(frame_infor,tmp_tracks_list):
-    plot_point_list = tmp_tracks_list[tmp_tracks_list['hung'] > 5]#选择出饥饿值大于5的所有点
-    fake_plot_list = plot_point_list[plot_point_list['Target']  == 0]#选择其中的错误关联点
-    real_plot_list = plot_point_list[plot_point_list['Target']  == 1]#选择其中的正确关联点
+def TrackPlotXY(frame_infor,tmp_tracks_list,delete_points):
+    plot_point_list = tmp_tracks_list[tmp_tracks_list['hung'] > 5]#选择出饥饿值大于5的所有点作为成功起始点
+    fake_plot_list = plot_point_list[plot_point_list['Target']  == 0]#选择成功起始点中的错误关联点
+    real_plot_list = plot_point_list[plot_point_list['Target']  == 1]#选择成功起始点中的正确关联点
 
-    miss_plot_list = frame_infor[frame_infor['Target'] == 1]   #选择其中漏警的数据点
+    miss_plot_list1 = delete_points[delete_points['Target'] == 1]#选择删除的点中的正确点
+    miss_plot_list2 = frame_infor[frame_infor['Target'] == 1]   #选择其中漏警的数据点
+    miss_plot_list = [miss_plot_list1,miss_plot_list2]
+    miss_plot_list = pd.concat(miss_plot_list,ignore_index = True,sort=True)
 
     missx = miss_plot_list.loc[:,'X_position']
     missy = miss_plot_list.loc[:,'Y_position']
@@ -121,29 +125,38 @@ def filter():
     pass
     return
 
+'''雷达航迹数据处理函数'''
+def DataProcs(RealData,total_frame = 5):
+    global tmp_tracks_list, tmp_tracks_total
+    if RealData == True:
+        Frame.FrameCreat(save_en=True, plot_en=True, fakerate=50, sample_rate=5)
 
-Frame.FrameCreat(save_en=True, plot_en= True, fakerate = 50, sample_rate = 5)
+    process_output = sys.stdout
+    for i in range(total_frame):
+        if RealData == True:
+            frame_infor = Frame.FrameRead(i)
+        else:
+            frame_infor = Frame.SimuFrameRead(i)
+        count = i / (total_frame - 1) * 100
+        process_output.write(f'\r PROCESSING percent:{count:.0f}%')
+        [frame_infor, tmp_tracks_list] = TarckRelate(frame_infor, tmp_tracks_list, tmp_tracks_total)
+        [tmp_tracks_list, tmp_tracks_total, delete_points] = TrackDelet(tmp_tracks_list, tmp_tracks_total)
+        [tmp_tracks_list, tmp_tracks_total] = TrackDevelop(frame_infor, tmp_tracks_list, tmp_tracks_total)
 
-total_frame = 55
-process_output = sys.stdout
-for i in range(total_frame):
-    frame_infor = Frame.FrameRead(i)
-    count = i/(total_frame-1)*100
-    process_output.write(f'\r PROCESSING percent:{count:.0f}%')
-    [frame_infor,tmp_tracks_list] = TarckRelate(frame_infor, tmp_tracks_list, tmp_tracks_total)
-    [tmp_tracks_list, track_total] = TrackDelet(tmp_tracks_list, tmp_tracks_total)
-    [tmp_tracks_list, tmp_tracks_total] = TrackDevelop(frame_infor, tmp_tracks_list, tmp_tracks_total)
+        [x, y, fakex, fakey, missx, missy] = TrackPlotXY(frame_infor, tmp_tracks_list, delete_points)
 
-    [x, y, fakex, fakey,missx,missy] = TrackPlotXY(frame_infor,tmp_tracks_list)
+        plt.scatter(x, y, s=15, c='r')
+        plt.scatter(fakex, fakey, s=15, c='gray', marker='x')
+        plt.scatter(missx, missy, s=15, c='g', marker='x')
+    process_output.flush
+    plt.xlim((-30, 30))
+    plt.ylim((0, 40))
 
-    plt.scatter(x, y, s=15, c='r')
-    plt.scatter(fakex, fakey, s=15,c = 'gray',marker='x')
-    plt.scatter(missx, missy, s=15,c = 'g',marker='x')
-#plt.ion()
-process_output.flush
-plt.xlim((-10, 10))
-plt.ylim((0, 30))
+    plt.show()
+    plt.pause(0)
 
-#plt.cla()#清屏
-plt.show()
-plt.pause(0)
+def main():
+    DataProcs(RealData = False,total_frame=10)
+
+if __name__ == '__main__':
+    main()
