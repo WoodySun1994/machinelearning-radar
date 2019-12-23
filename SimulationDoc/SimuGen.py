@@ -1,15 +1,25 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+'''
+更新：“2019.12.23
+#功能：产生仿真帧数据
+#auther： woody sun
+'''
+
 import Point
 import  matplotlib.pyplot as plt
 import numpy as np
+import random
 
 AutoTestEn = False   #自动测试
 AutoTestSetting = {'realtracknum': 6, 'faketracknum':50, 'framenum':10}
-AutoTestData = [{'movtype':'UT', "x":-12.0, "y":30.0,'speed':0.14, 'angle':-10, 'accelerate':0},
-                {'movtype':'UT', "x":12, "y":37.0,'speed':0.13, 'angle': 4, 'accelerate':0},
-                {'movtype':'AL', "x":10.0, "y":36.0,'speed':0.12, 'angle':0, 'accelerate':0.3},
-                {'movtype':'AL', "x": 20.0, "y":15.0,'speed':0.2, 'angle': 20, 'accelerate':0.15},
-                {'movtype':'UL', "x":0.0, "y":39.0,'speed':0.3, 'angle': 40, 'accelerate':0},
-                {'movtype':'UL', "x":18.50, "y":25.0,'speed':0.23, 'angle': 10, 'accelerate':0}
+AutoTestData = [{'movtype':'UT', "x":-12.0, "y":30.0,'speed':20, 'angle':-10, 'accelerate':0},
+                {'movtype':'UT', "x":12, "y":37.0,'speed':15, 'angle': 4, 'accelerate':0},
+                {'movtype':'AL', "x":10.0, "y":36.0,'speed':3, 'angle':0, 'accelerate':2},
+                {'movtype':'AL', "x": 20.0, "y":15.0,'speed':8, 'angle': 20, 'accelerate':2},
+                {'movtype':'UL', "x":0.0, "y":39.0,'speed':9, 'angle': 40, 'accelerate':0},
+                {'movtype':'UL', "x":18.50, "y":25.0,'speed':13, 'angle': 10, 'accelerate':0}
                 ]
 
 class FrameInfor:
@@ -19,9 +29,9 @@ class FrameInfor:
         self.faketracknum = faketracknum
         self.frameno = frameno
 
-        if lastframe == None :#第一帧数据由用户手动给出
+        if lastframe == None :#第一帧数据由用户给出
             for i in range(int(self.realtracknum)):
-                if AutoTestEn == False:
+                if AutoTestEn == False:#非自动测试的情况下，需要用户手动输入运动参数
                     print("第", i + 1, "个航迹的运动类型(UL,AL,UT)：", end='')
                     movtype = input()
                     if movtype != 'UL' and movtype != 'AL' and movtype != 'UT':
@@ -40,7 +50,7 @@ class FrameInfor:
                         accelerate = float(input())
                     else:
                         accelerate = 0.0
-                else:
+                else:#自动测试时读取参数列表作为仿真数据来源
                     movtype = AutoTestData[i]["movtype"]
                     x = AutoTestData[i]["x"]
                     y = AutoTestData[i]["y"]
@@ -62,6 +72,7 @@ class FrameInfor:
         for point in self.lastframe.points_list:
             if point.flag == 1:  #如果当前点为真实点，则将改点传入对应的真实点产生函数中
                 RP = Point.RealPtGenerator(point.x, point.y, point.movetype, point.speed,point.accelerate,point.angle)
+                RP = self.add_noise(RP)
                 self.points_list.append(RP)
 
             else:#如果当前点为虚假点，则调用虚假点产生函数
@@ -86,6 +97,11 @@ class FrameInfor:
         savepath = "./simufile/simufile_" + str(self.frameno) + '.txt'
         np.savetxt(savepath,savedata,fmt='%.3f')
 
+    def add_noise(self,point):
+        point.x = point.x + random.gauss(mu=0,sigma=0.1)  #位置参数误差符合mu=0,sigma=0.1的高斯分布
+        point.y = point.y + random.gauss(mu=0, sigma=0.1)
+        point.angle = point.angle + random.gauss(mu=0, sigma=0.8)#角度参数误差符合mu=0,sigma=0.8的高斯分布
+        return point
 
 class SimuData:
     def __init__(self,autotesten = False):
