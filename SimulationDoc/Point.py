@@ -1,3 +1,12 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+'''
+更新：“2019.12.22
+#功能：实现仿真数据点产生
+#auther： woody sun
+'''
+
 import random
 import math
 
@@ -38,15 +47,15 @@ class RealPtGenerator(RealPoint):
         if self.movetype == 'UL':#匀速直线运动
             self.accelerate = 0
             self.speed = self.speed = round(speed + self.accelerate, 2)
-            self.y = round(y - self.speed, 2)
+            self.y = round(y - self.speed/36, 2)# 将km/s改为m/s
             self.angle = round(angle, 3)
-            self.x = round(x - speed * math.tan(math.radians(self.angle)), 2)
+            self.x = round(x - speed / 36 * math.tan(math.radians(self.angle)), 2)
         elif self.movetype == 'AL':#加速直线运动
             self.accelerate = round(accelerate, 2)
             self.speed = round(speed + self.accelerate, 2)
-            self.y = round(y - self.speed, 2)
+            self.y = round(y - self.speed/36, 2)
             self.angle = round(angle, 3)
-            self.x = round(x - speed * math.tan(math.radians(self.angle)), 2)
+            self.x = round(x - speed/36 * math.tan(math.radians(self.angle)), 2)
         elif self.movetype == 'UT': #匀速转弯运动
             self.angle = round(angle + (angle/4), 3)
             if self.angle > 70:  #转弯角度不超过正负70°
@@ -56,9 +65,9 @@ class RealPtGenerator(RealPoint):
                 self.angle = -70
             self.accelerate = 0
             self.speed = round(speed + self.accelerate, 2)
-            self.y = round(y - self.speed, 2)
+            self.y = round(y - self.speed/36, 2)
 
-            self.x = round(x - speed * math.tan(math.radians(self.angle)), 2)
+            self.x = round(x - speed/36 * math.tan(math.radians(self.angle)), 2)
 
         self.color = 'red'
         self.flag = 1
@@ -69,7 +78,7 @@ class RealPtGenerator(RealPoint):
 class FakePtGenerator(FakePoint):
     def __init__(self):
         self.accelerate = round(5*random.uniform(-1,1),2)
-        self.speed = round(20 * random.uniform(0, 1),2)
+        self.speed = round(15 * random.uniform(0, 1),2)
         self.y = round(40 * random.uniform(0, 1),2)
         self.x = round(30 * random.uniform(-1,1),2)
         self.angle = round(math.degrees(math.atan(self.x / (self.y + 0.01))), 3)
