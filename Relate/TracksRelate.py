@@ -54,7 +54,7 @@ def TarckRelate(frame_infor,tmp_tracks_list, tmp_tracks_total):
         X_position = tmp_tracks_list.at[i, 'X_position']
         Y_position = tmp_tracks_list.at[i, 'Y_position']
 
-        tmp = frame_infor[(frame_infor['Speed'] > speed - 2) & (frame_infor['Speed'] < speed + 2)]
+        tmp = frame_infor[(frame_infor['Speed'] > speed - 4) & (frame_infor['Speed'] < speed + 4)]
         tmp = tmp[(tmp['X_position'] > X_position - 1) & (tmp['X_position'] < X_position + 1)]
         tmp = tmp[(tmp['Y_position'] > Y_position - 1) & (tmp['Y_position'] < Y_position + 0.5)]
 
