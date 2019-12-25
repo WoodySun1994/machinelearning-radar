@@ -11,16 +11,44 @@ import Point
 import  matplotlib.pyplot as plt
 import numpy as np
 import random
+import os
 
-AutoTestEn = False   #自动测试
-AutoTestSetting = {'realtracknum': 6, 'faketracknum':50, 'framenum':10}
-AutoTestData = [{'movtype':'UT', "x":-12.0, "y":30.0,'speed':20, 'angle':-10, 'accelerate':0},
-                {'movtype':'UT', "x":12, "y":37.0,'speed':15, 'angle': 4, 'accelerate':0},
-                {'movtype':'AL', "x":10.0, "y":36.0,'speed':3, 'angle':0, 'accelerate':2},
-                {'movtype':'AL', "x": 20.0, "y":15.0,'speed':8, 'angle': 20, 'accelerate':2},
-                {'movtype':'UL', "x":0.0, "y":39.0,'speed':9, 'angle': 40, 'accelerate':0},
-                {'movtype':'UL', "x":18.50, "y":25.0,'speed':13, 'angle': 10, 'accelerate':0}
-                ]
+def mkdir(path):
+    folder = os.path.exists(path)
+    if not folder:
+        os.makedirs(path)
+    else:
+        pass
+
+def AutoTestDataGnerator(realtracknum):
+    AutoTestData  = []
+    for i in range(realtracknum):
+        point = {}
+        point["movtype"] = random.choice(['UT','AL','UL'])
+        point["x"] = 30 * round(random.uniform(-1,1),2)
+        point["y"] = 40 * round(random.random(),2)
+        point["speed"] = 5 * round(random.uniform(0.5,1),2)
+        point["angle"] = 30 * round(random.uniform(-1,1),3)
+        if point["movtype"] == 'AL':
+            point["accelerate"]  = round(0.5 * random.random(),2)
+        else:
+            point["accelerate"] = 0
+        AutoTestData.append(point)
+    return AutoTestData
+
+AutoTestEn = True   #自动测试
+AutoTestSetting = {'realtracknum': 6, 'faketracknum':100, 'framenum':10}
+
+
+'''
+AutoTestData = [{'movtype':'UT', "x":-12.0, "y":30.0,'speed':3.5, 'angle':-10, 'accelerate':0},
+            {'movtype':'UT', "x":12, "y":37.0,'speed':4.5, 'angle': 8, 'accelerate':0},
+            {'movtype':'AL', "x":10.0, "y":36.0,'speed':2.5, 'angle':0, 'accelerate':0.37},
+            {'movtype':'AL', "x": 20.0, "y":15.0,'speed':2, 'angle': 20, 'accelerate':0.43},
+            {'movtype':'UL', "x":0.0, "y":39.0,'speed':5, 'angle': 30, 'accelerate':0},
+            {'movtype':'UL', "x":18.50, "y":25.0,'speed':3.5, 'angle': -10, 'accelerate':0}
+            ]
+'''
 
 class FrameInfor:
     def __init__(self,realtracknum = 5, faketracknum = 10, frameno  = 0,lastframe = None):
@@ -51,6 +79,7 @@ class FrameInfor:
                     else:
                         accelerate = 0.0
                 else:#自动测试时读取参数列表作为仿真数据来源
+                    AutoTestData = AutoTestDataGnerator(AutoTestSetting['realtracknum'])
                     movtype = AutoTestData[i]["movtype"]
                     x = AutoTestData[i]["x"]
                     y = AutoTestData[i]["y"]
@@ -87,14 +116,12 @@ class FrameInfor:
         plt.ylim((0, 40))
         plt.show()
 
-    def save_frame(self):
-        i = 0
+    def save_frame(self,simuno = 0):
         savedata = []
         for point in self.points_list:
             '''Angle, Speed, Target, X_position, Y_position'''
             savedata.append([point.angle,point.speed,point.flag,point.x, point.y])
-            i += 1
-        savepath = "./simufile/simufile_" + str(self.frameno) + '.txt'
+        savepath = "./simufile"+str(simuno)+"/frame_" + str(self.frameno) + '.txt'
         np.savetxt(savepath,savedata,fmt='%.3f')
 
     def add_noise(self,point):
@@ -127,13 +154,26 @@ class SimuData:
             self.frame.append(FI)
 
     def show_simu(self):
+        '''显示仿真数据'''
+        # plt.ion()'''按帧显示'''
+        # for frame in self.frame:
+        #     for point in frame.points_list:
+        #         plt.scatter(point.x, point.y, c=point.color,s =5)
+        #     plt.xlim((-30, 30))
+        #     plt.ylim((0, 40))
+        #     plt.pause(0.001)
+        #     plt.cla()  # 清屏
+
         for frame in self.frame:
             for point in frame.points_list:
-                plt.scatter(point.x, point.y, c=point.color,s =2)
+                plt.scatter(point.x, point.y, c=point.color,s =point.size)
         plt.xlim((-30, 30))
         plt.ylim((0, 40))
         plt.show()
+        plt.pause(0)
 
-    def save_simu(self):
+    def save_simu(self,simuno = 0):
+        simupath = "./simufile" + str(simuno)
+        mkdir(simupath)
         for frm in self.frame:
-            frm.save_frame()
+            frm.save_frame(simuno)
