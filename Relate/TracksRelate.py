@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2019.12.22
+更新：“2019.12.25
 #功能：航迹关联多目标假设算法
 #auther： woody sun
 '''
@@ -13,21 +13,25 @@ import matplotlib.pyplot as plt
 import math
 import sys
 import Frame
+import SunLearn
 
-'''
-    新建临时航迹列表
-    hung   Angle  Speed  Target  X_position  Y_position
-0    0.0    0.0     0.0    0.0     0.0         0.0
-1    0.0    0.0     0.0    0.0     0.0         0.0
-…   ……  ……    ……      ………      ………
-4   0.0    0.0     0.0    0.0     0.0         0.0
-'''
-data = np.zeros((5,6))
-listname = ['hung','Angle','Speed','Target','X_position','Y_position']
-tmp_tracks_list = pd.DataFrame(data = data,columns = listname)
+'''初始化临时航迹列表'''
+def tmp_tracks_init():
+    '''
+        新建临时航迹列表
+        hung   Angle  Speed  Target  X_position  Y_position
+    0    0.0    0.0     0.0    0.0     0.0         0.0
+    1    0.0    0.0     0.0    0.0     0.0         0.0
+    …   ……  ……    ……      ………      ………
+    4   0.0    0.0     0.0    0.0     0.0         0.0
+    '''
+    data = np.zeros((5,6))
+    listname = ['hung','Angle','Speed','Target','X_position','Y_position']
+    tmp_tracks_list = pd.DataFrame(data = data,columns = listname)
 
-'''临时航迹数'''
-tmp_tracks_total = 5
+    '''临时航迹数'''
+    tmp_tracks_total = 5
+    return tmp_tracks_list,tmp_tracks_total
 
 '''最邻近算法'''
 # 在从量测波们内选取离输入坐标点距离最近的量测
@@ -43,7 +47,7 @@ def NN(tmp_points, last_xpos, last_ypos):
             pointno = i
     return tmp_points.iloc[[pointno]]
 
-'''临时航迹关联函数'''
+'''临时航迹关联函数（逻辑法）'''
 # 将当前点与已经存在的临时航迹列表进行比较，返回匹配后的航迹号。若无匹配航迹则返回-1
 #输入：frame_infor当前点信息   tmp_tracks_list临时航迹列表   tmp_tracks_total临时航迹数量
 #输出：更新后的[frame_infor,tmp_tracks_list]
@@ -54,7 +58,7 @@ def TarckRelate(frame_infor,tmp_tracks_list, tmp_tracks_total):
         X_position = tmp_tracks_list.at[i, 'X_position']
         Y_position = tmp_tracks_list.at[i, 'Y_position']
 
-        tmp = frame_infor[(frame_infor['Speed'] > speed - 4) & (frame_infor['Speed'] < speed + 4)]
+        tmp = frame_infor[(frame_infor['Speed'] > speed - 2) & (frame_infor['Speed'] < speed + 2)]
         tmp = tmp[(tmp['X_position'] > X_position - 1) & (tmp['X_position'] < X_position + 1)]
         tmp = tmp[(tmp['Y_position'] > Y_position - 1) & (tmp['Y_position'] < Y_position + 0.5)]
 
@@ -69,6 +73,10 @@ def TarckRelate(frame_infor,tmp_tracks_list, tmp_tracks_total):
         tmp_tracks_list.iloc[[Track_rela],0] = tmp_tracks_list.iloc[[Track_rela],0] + 3#更新hung值
         if tmp_tracks_list.iat[Track_rela,0] > 7:  #hung值最大为6
              tmp_tracks_list.iat[Track_rela,0] = 7
+        if tmp_tracks_list.iat[Track_rela,0] > 6:#画出关联成功的航迹直线
+            linex = [tmp_tracks_list.at[i, 'X_position'],tmp['X_position']]
+            liney = [tmp_tracks_list.at[i, 'Y_position'],tmp['Y_position']]
+            plt.plot(linex,liney,c = 'black')
         tmp_tracks_list.iloc[[Track_rela],1:] = tmp.values   #将匹配点的信息加入临时航迹列表
         frame_infor = frame_infor.drop(tmp.index)            #从帧数据中删除匹配成功的航迹点，在剩下的点中继续与其他临时航迹相匹配
     tmp_tracks_list['hung'] = tmp_tracks_list['hung'] - 1#所有航迹饥饿值-1
@@ -82,7 +90,7 @@ def TrackDevelop(frame_infor,tmp_tracks_list,tmp_tracks_total):
     newname = ['hung','Angle','Speed','Target','X_position','Y_position']
     tmp_frame_infor = frame_infor.reindex(columns = newname,fill_value = 2)    #设置所有新建航迹的饥饿值为2
     new_tmp_tracks = [tmp_tracks_list,tmp_frame_infor]
-    tmp_tracks_list = pd.concat(new_tmp_tracks,ignore_index = True)             #将新建航迹加入临时航迹列表
+    tmp_tracks_list = pd.concat(new_tmp_tracks,ignore_index = True)             #将去除了成功匹配航迹外的新航迹加入临时航迹列表
     tmp_tracks_total = tmp_tracks_list.shape[0]
     return [tmp_tracks_list,tmp_tracks_total]
 
@@ -121,42 +129,46 @@ def TrackPlotXY(frame_infor,tmp_tracks_list,delete_points):
 
 '''航迹滤波函数'''
 #滤波函数
-def filter():
-    pass
-    return
+def filter(frame_infor):
+    frame_infor = SunLearn.MyClassify(frame_infor)
+    return frame_infor
 
-'''雷达航迹数据处理函数'''
-def DataProcs(RealData,total_frame = 5):
-    global tmp_tracks_list, tmp_tracks_total
-    if RealData == True:
+'''雷达航迹数据处理主函数'''
+def DataProcs(RealData,total_simu = 30, total_frame = 10):
+    process_output = sys.stdout#标准图像输出
+    if RealData == True:#如果利用真实航迹作为数据源，则需要将真实数据进行分帧处理
         Frame.FrameCreat(save_en=True, plot_en=True, fakerate=50, sample_rate=5)
 
-    process_output = sys.stdout
-    for i in range(total_frame):
-        if RealData == True:
-            frame_infor = Frame.FrameRead(i)
-        else:
-            frame_infor = Frame.SimuFrameRead(i)
-        count = i / (total_frame - 1) * 100
-        process_output.write(f'\r PROCESSING percent:{count:.0f}%')
-        [frame_infor, tmp_tracks_list] = TarckRelate(frame_infor, tmp_tracks_list, tmp_tracks_total)
-        [tmp_tracks_list, tmp_tracks_total, delete_points] = TrackDelet(tmp_tracks_list, tmp_tracks_total)
-        [tmp_tracks_list, tmp_tracks_total] = TrackDevelop(frame_infor, tmp_tracks_list, tmp_tracks_total)
+    for j in range(total_simu):
 
-        [x, y, fakex, fakey, missx, missy] = TrackPlotXY(frame_infor, tmp_tracks_list, delete_points)
+        tmp_tracks_list, tmp_tracks_total = tmp_tracks_init()
+        for i in range(total_frame):
+            if RealData == True:
+                frame_infor = Frame.FrameRead(i)
+            else:
+                frame_infor = Frame.SimuFrameRead(j,i)
 
-        plt.scatter(x, y, s=15, c='r')
-        plt.scatter(fakex, fakey, s=15, c='gray', marker='x')
-        plt.scatter(missx, missy, s=15, c='g', marker='x')
-    process_output.flush
-    plt.xlim((-30, 30))
-    plt.ylim((0, 40))
+            count = i / (total_frame - 1) * 100
+            process_output.write(f'\r PROCESSING percent:{count:.0f}%')
+            #frame_infor = SunLearn.MyClassify(frame_infor)
+            [frame_infor, tmp_tracks_list] = TarckRelate(frame_infor, tmp_tracks_list, tmp_tracks_total)
+            [tmp_tracks_list, tmp_tracks_total, delete_points] = TrackDelet(tmp_tracks_list, tmp_tracks_total)
+            [tmp_tracks_list, tmp_tracks_total] = TrackDevelop(frame_infor, tmp_tracks_list, tmp_tracks_total)
 
-    plt.show()
-    plt.pause(0)
+            [x, y, fakex, fakey, missx, missy] = TrackPlotXY(frame_infor, tmp_tracks_list, delete_points)
+
+            plt.scatter(x, y, s=15, c='r')
+            plt.scatter(fakex, fakey, s=15, c='gray', marker='x')
+            plt.scatter(missx, missy, s=15, c='g', marker='x')
+        process_output.flush
+        plt.xlim((-30, 30))
+        plt.ylim((0, 40))
+
+        plt.show()
+        plt.pause(0)
 
 def main():
-    DataProcs(RealData = False,total_frame=10)
+    DataProcs(RealData = False,total_simu = 30,total_frame=10)
 
 if __name__ == '__main__':
     main()
