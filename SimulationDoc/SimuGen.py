@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2019.12.25
+更新：“2019.12.26
 #功能：产生仿真帧数据
 #auther： woody sun
 '''
@@ -13,15 +13,17 @@ import numpy as np
 import random
 import os
 
-def mkdir(path):
+def mk_dir(path):
+    '''根据path参数新建文件夹'''
     folder = os.path.exists(path)
     if not folder:
         os.makedirs(path)
     else:
         pass
 
-def AutoTestDataGnerator(realtracknum):
-    AutoTestData  = []
+def Auto_test_data_gne(realtracknum):
+    '''自动测试数据生成器，输入参数为需要产生的真实航迹数量'''
+    autotestdata  = []
     for i in range(realtracknum):
         point = {}
         point["movtype"] = random.choice(['UT','AL','UL'])
@@ -33,15 +35,15 @@ def AutoTestDataGnerator(realtracknum):
             point["accelerate"]  = round(0.5 * random.random(),2)
         else:
             point["accelerate"] = 0
-        AutoTestData.append(point)
-    return AutoTestData
+        autotestdata.append(point)
+    return autotestdata
 
-AutoTestEn = True   #自动测试
-AutoTestSetting = {'realtracknum': 6, 'faketracknum':100, 'framenum':10}
+AUTOTESTEN = True   #自动测试
+AUTOTESTSET = {'realtracknum': 6, 'faketracknum':100, 'framenum':10}
 
 
 '''
-AutoTestData = [{'movtype':'UT', "x":-12.0, "y":30.0,'speed':3.5, 'angle':-10, 'accelerate':0},
+AUTOTESTDATA = [{'movtype':'UT', "x":-12.0, "y":30.0,'speed':3.5, 'angle':-10, 'accelerate':0},
             {'movtype':'UT', "x":12, "y":37.0,'speed':4.5, 'angle': 8, 'accelerate':0},
             {'movtype':'AL', "x":10.0, "y":36.0,'speed':2.5, 'angle':0, 'accelerate':0.37},
             {'movtype':'AL', "x": 20.0, "y":15.0,'speed':2, 'angle': 20, 'accelerate':0.43},
@@ -59,7 +61,7 @@ class FrameInfor:
 
         if lastframe == None :#第一帧数据由用户给出
             for i in range(int(self.realtracknum)):
-                if AutoTestEn == False:#非自动测试的情况下，需要用户手动输入运动参数
+                if AUTOTESTEN == False:#非自动测试的情况下，需要用户手动输入运动参数
                     print("第", i + 1, "个航迹的运动类型(UL,AL,UT)：", end='')
                     movtype = input()
                     if movtype != 'UL' and movtype != 'AL' and movtype != 'UT':
@@ -79,7 +81,7 @@ class FrameInfor:
                     else:
                         accelerate = 0.0
                 else:#自动测试时读取参数列表作为仿真数据来源
-                    AutoTestData = AutoTestDataGnerator(AutoTestSetting['realtracknum'])
+                    AutoTestData = Auto_test_data_gne(AUTOTESTSET['realtracknum'])
                     movtype = AutoTestData[i]["movtype"]
                     x = AutoTestData[i]["x"]
                     y = AutoTestData[i]["y"]
@@ -93,7 +95,6 @@ class FrameInfor:
             for i in range(int(self.faketracknum)):
                 FP = Point.FakePtGenerator()
                 self.points_list.append(FP)
-
         else:
             self.lastframe = lastframe
 
@@ -119,15 +120,15 @@ class FrameInfor:
     def save_frame(self,simuno = 0):
         savedata = []
         for point in self.points_list:
-            '''Angle, Speed, Target, X_position, Y_position'''
-            savedata.append([point.angle,point.speed,point.flag,point.x, point.y])
+            '''Angle, Speed, X_position, Y_position, Target'''
+            savedata.append([point.angle,point.speed,point.x, point.y,point.flag])
         savepath = "./simufile"+str(simuno)+"/frame_" + str(self.frameno) + '.txt'
         np.savetxt(savepath,savedata,fmt='%.3f')
 
     def add_noise(self,point):
-        point.x = point.x + random.gauss(mu=0,sigma=0.1)  #位置参数误差符合mu=0,sigma=0.1的高斯分布
-        point.y = point.y + random.gauss(mu=0, sigma=0.1)
-        point.angle = point.angle + random.gauss(mu=0, sigma=0.8)#角度参数误差符合mu=0,sigma=0.8的高斯分布
+        point.x = point.x + round(random.gauss(mu=0,sigma=0.1),2)  #位置参数误差符合mu=0,sigma=0.1的高斯分布
+        point.y = point.y + round(random.gauss(mu=0, sigma=0.1),2)
+        point.angle = point.angle + round(random.gauss(mu=0, sigma=0.8),3)#角度参数误差符合mu=0,sigma=0.8的高斯分布
         return point
 
 class SimuData:
@@ -140,9 +141,9 @@ class SimuData:
             self.faketracknum = input("虚假点迹数量（帧）：")
             self.framenum = input("仿真数据帧数：")
         else:
-            self.realtracknum = AutoTestSetting["realtracknum"]
-            self.faketracknum = AutoTestSetting["faketracknum"]
-            self.framenum = AutoTestSetting["framenum"]
+            self.realtracknum = AUTOTESTSET["realtracknum"]
+            self.faketracknum = AUTOTESTSET["faketracknum"]
+            self.framenum = AUTOTESTSET["framenum"]
         FI = FrameInfor(self.realtracknum,self.faketracknum)
 
         self.frame.append(FI)
@@ -174,6 +175,6 @@ class SimuData:
 
     def save_simu(self,simuno = 0):
         simupath = "./simufile" + str(simuno)
-        mkdir(simupath)
+        mk_dir(simupath)
         for frm in self.frame:
             frm.save_frame(simuno)
