@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2019.12.25
+更新：“2019.12.26
 #功能：关于雷达数据帧产生与读取等操作
 #auther： woody sun
 '''
@@ -169,8 +169,8 @@ def FrameCreat(save_en = True,plot_en = True,fakerate = 20,sample_rate = 1):
 
 '''读取仿真数据'''
 def SimuFrameRead(jjj,iii):
-    Simupath = '../radar_infor_sim/simufile'+ str(jjj)+'/frame_' + str(iii) + '.txt'
-    names = ['Angle','Speed', 'Target', 'X_position','Y_position']
+    Simupath = './radar_infor_sim/simufile'+ str(jjj)+'/frame_' + str(iii) + '.txt'
+    names = ['Angle','Speed', 'X_position','Y_position', 'Target']
     try:
         frame_infor = pd.read_csv(Simupath, sep=' ', names=names)
     except:
