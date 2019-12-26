@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2019.12.25
+更新：“2019.12.26
 #功能：航迹关联多目标假设算法
 #auther： woody sun
 '''
@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import math
 import sys
 import Frame
-import SunLearn
+import RadarMl
 
 '''初始化临时航迹列表'''
 def tmp_tracks_init():
@@ -26,7 +26,7 @@ def tmp_tracks_init():
     4   0.0    0.0     0.0    0.0     0.0         0.0
     '''
     data = np.zeros((5,6))
-    listname = ['hung','Angle','Speed','Target','X_position','Y_position']
+    listname = ['hung','Angle','Speed','X_position','Y_position','Target']
     tmp_tracks_list = pd.DataFrame(data = data,columns = listname)
 
     '''临时航迹数'''
@@ -60,7 +60,7 @@ def TarckRelate(frame_infor,tmp_tracks_list, tmp_tracks_total):
 
         tmp = frame_infor[(frame_infor['Speed'] > speed - 2) & (frame_infor['Speed'] < speed + 2)]
         tmp = tmp[(tmp['X_position'] > X_position - 1) & (tmp['X_position'] < X_position + 1)]
-        tmp = tmp[(tmp['Y_position'] > Y_position - 1) & (tmp['Y_position'] < Y_position + 0.5)]
+        tmp = tmp[(tmp['Y_position'] > Y_position - 2) & (tmp['Y_position'] < Y_position + 0.5)]
 
         if tmp.shape[0] == 0:  #当没有匹配目标时
             continue
@@ -87,7 +87,7 @@ def TarckRelate(frame_infor,tmp_tracks_list, tmp_tracks_total):
 #输入：frame_infor 当前帧目标点信息，tmp_tracks_list临时航迹信息列表
 #输出：更新后的[tmp_tracks_list,tmp_tracks_total]
 def TrackDevelop(frame_infor,tmp_tracks_list,tmp_tracks_total):
-    newname = ['hung','Angle','Speed','Target','X_position','Y_position']
+    newname = ['hung','Angle','Speed','X_position','Y_position','Target']
     tmp_frame_infor = frame_infor.reindex(columns = newname,fill_value = 2)    #设置所有新建航迹的饥饿值为2
     new_tmp_tracks = [tmp_tracks_list,tmp_frame_infor]
     tmp_tracks_list = pd.concat(new_tmp_tracks,ignore_index = True)             #将去除了成功匹配航迹外的新航迹加入临时航迹列表
@@ -127,20 +127,22 @@ def TrackPlotXY(frame_infor,tmp_tracks_list,delete_points):
 
     return [x,y,fakex,fakey,missx,missy]
 
-'''航迹滤波函数'''
-#滤波函数
-def filter(frame_infor):
-    frame_infor = SunLearn.MyClassify(frame_infor)
-    return frame_infor
+# '''航迹滤波函数'''
+# #滤波函数
+# def filter(frame_infor):
+#     frame_infor = RadarMl.MyClassify(frame_infor)
+#     return frame_infor
 
 '''雷达航迹数据处理主函数'''
 def DataProcs(RealData,total_simu = 30, total_frame = 10):
     process_output = sys.stdout#标准图像输出
+    mlmodel = RadarMl.radar_ml('KNN')
+    mlmodel.Datasetproc(simu=True,scale_en= False, poly_en=False)
+    mlmodel.Train()
     if RealData == True:#如果利用真实航迹作为数据源，则需要将真实数据进行分帧处理
         Frame.FrameCreat(save_en=True, plot_en=True, fakerate=50, sample_rate=5)
 
     for j in range(total_simu):
-
         tmp_tracks_list, tmp_tracks_total = tmp_tracks_init()
         for i in range(total_frame):
             if RealData == True:
@@ -150,7 +152,7 @@ def DataProcs(RealData,total_simu = 30, total_frame = 10):
 
             count = i / (total_frame - 1) * 100
             process_output.write(f'\r PROCESSING percent:{count:.0f}%')
-            #frame_infor = SunLearn.MyClassify(frame_infor)
+            frame_infor = mlmodel.Applicate(frame_infor)
             [frame_infor, tmp_tracks_list] = TarckRelate(frame_infor, tmp_tracks_list, tmp_tracks_total)
             [tmp_tracks_list, tmp_tracks_total, delete_points] = TrackDelet(tmp_tracks_list, tmp_tracks_total)
             [tmp_tracks_list, tmp_tracks_total] = TrackDevelop(frame_infor, tmp_tracks_list, tmp_tracks_total)
