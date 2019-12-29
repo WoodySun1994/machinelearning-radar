@@ -10,7 +10,6 @@ import math
 import random
 import numpy as np
 from scipy.fftpack import fft
-
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d as Axes3D
 
@@ -107,21 +106,38 @@ def BaseSignalGen():
             baseSignal[i][j] = 20 * math.log(D1[i][j], 10)
     return baseSignal
 
-
+def SignalSave2txt(signal,type = 'base'):
+    '''保存二维FFT信号至txt文件'''
+    signalType = ["base","random",'target']
+    if signal.shape == (128,64):
+        if type in signalType:
+            filename = './'+type + '.txt'
+            np.savetxt(filename,signal,fmt = '%.3e')
+        else:
+            raise ("TypeError: Wrong signal type to save!")
+    else:
+        raise ("DataEroor: Wrong siganl format to save!")
 
 fig = plt.figure()
 ax = plt.axes(projection = '3d')
+
+def FFTSignalLoad(path):
+    '''二维FFT信号读取'''
+    signal = np.loadtxt(path)
+    return signal
 
 xx = np.arange(0,64,1)
 yy = np.arange(0,128,1)
 dopfftAxis,rangeAxis = np.meshgrid(xx,yy)
 dopfftLenght,rangeLenght = dopfftAxis.shape
-randSignal = RandomSignalGen(dopfftLenght,rangeLenght)
-baseSignal = BaseSignalGen(dopfftLenght,rangeLenght)
+# randSignal = RandomSignalGen(dopfftLenght,rangeLenght)
+# baseSignal = BaseSignalGen()
+# SignalSave2txt(baseSignal,'base')
+baseSignal = FFTSignalLoad("./base.txt")
 targetSignal = np.zeros((dopfftLenght,rangeLenght),np.float)
 
 
-signal = randSignal + baseSignal + targetSignal
+signal =  baseSignal + targetSignal
 ax.plot_surface(dopfftAxis,rangeAxis,signal,rstride=4,cstride=4,cmap='rainbow')#
 
 ax.set_xlabel("dopfft")
@@ -136,3 +152,4 @@ def ShowFFT():
     # while(1):
     #     plt.ion()
     #     plt.pause(0.001)
+
