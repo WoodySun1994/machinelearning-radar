@@ -19,7 +19,7 @@ def Hanning(N=128):
     return window
 
 def sawtooth(x):
-    '''产生锯齿波'''
+    '''产生周期为2pi，峰峰值为-1~1的锯齿波'''
     yout = []
     for i in x:
         y = (i%(2*math.pi) - math.pi)/(math.pi)
@@ -118,38 +118,52 @@ def SignalSave2txt(signal,type = 'base'):
     else:
         raise ("DataEroor: Wrong siganl format to save!")
 
-fig = plt.figure()
-ax = plt.axes(projection = '3d')
+
 
 def FFTSignalLoad(path):
     '''二维FFT信号读取'''
     signal = np.loadtxt(path)
     return signal
 
-xx = np.arange(0,64,1)
-yy = np.arange(0,128,1)
-dopfftAxis,rangeAxis = np.meshgrid(xx,yy)
-dopfftLenght,rangeLenght = dopfftAxis.shape
-# randSignal = RandomSignalGen(dopfftLenght,rangeLenght)
-# baseSignal = BaseSignalGen()
-# SignalSave2txt(baseSignal,'base')
-baseSignal = FFTSignalLoad("./base.txt")
-targetSignal = np.zeros((dopfftLenght,rangeLenght),np.float)
+def ShowFFT(signal,ax):
+    '''动态显示FFT数据'''
+    # plt.ion()
+    # ax.set_xlabel("dopfft")
+    # ax.set_ylabel("range")
+    # ax.set_xlim(0, 80)
+    # ax.set_ylim(0, 150)
+    # ax.set_zlim(-10, 200)
+    ax.plot_surface(128, 64, signal, rstride=4, cstride=4, cmap='rainbow')  #
+    plt.pause(0.001)
+    plt.cla()  # 清屏
 
+def main():
+    fig = plt.figure()
+    ax = plt.axes(projection = '3d')
+    xx = np.arange(0,64,1)
+    yy = np.arange(0,128,1)
+    dopfftAxis,rangeAxis = np.meshgrid(xx,yy)
+    dopfftLenght,rangeLenght = dopfftAxis.shape
 
-signal =  baseSignal + targetSignal
-ax.plot_surface(dopfftAxis,rangeAxis,signal,rstride=4,cstride=4,cmap='rainbow')#
+    # baseSignal = BaseSignalGen()
+    # SignalSave2txt(baseSignal,'base')
+    baseSignal = FFTSignalLoad("./base.txt")
+    targetSignal = np.zeros((dopfftLenght,rangeLenght),np.float)
 
-ax.set_xlabel("dopfft")
-ax.set_ylabel("range")
-ax.set_xlim(0,80)
-ax.set_ylim(0,150)
-ax.set_zlim(-10,150)
-plt.show()
+    plt.ion()
+    ax.set_xlabel("dopfft")
+    ax.set_ylabel("range")
+    ax.set_xlim(0,80)
+    ax.set_ylim(0,150)
+    ax.set_zlim(-10,200)
+#plt.show()
+    while(1):
+        randSignal = RandomSignalGen(dopfftLenght,rangeLenght)
+        signal =  randSignal + baseSignal
+        ax.plot_surface(dopfftAxis, rangeAxis, signal, rstride=4, cstride=4, cmap='rainbow')  #
+        plt.pause(0.001)
+        plt.cla()  # 清屏
 
-def ShowFFT():
-    pass
-    # while(1):
-    #     plt.ion()
-    #     plt.pause(0.001)
+if __name__ == '__main__':
+    main()
 
