@@ -17,7 +17,6 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 
-
 class radar_ml():
     def __init__(self,classifier = 'KNN'):
         self.clasname = classifier
@@ -101,18 +100,23 @@ class radar_ml():
         self.testscore = self.classifier.score(self.X_test, self.Y_test)
 
     def Applicate(self,frame):
-        '''模型应用于分类帧数据中的虚假点'''
+        '''将训练好的模型应用于分类帧数据中的虚假点'''
         # 将特征[''Angle',Speed','Target','X_position','Y_position',]重新排序为-> [''Angle',Speed','X_position','Y_position','Target']
         #frame = frame.join(frame.pop('Angle'))
-        frame = frame.join(frame.pop('Target'))
+        #frame = frame.join(frame.pop('Target'))
+        #frame.columns = ['Angle','Speed','X_position','Y_position','Target']
+        missPoints = pd.DataFrame([],columns=['Angle','Speed','X_position','Y_position','Target'])
         for i in range(frame.shape[0]):
             Xdata = frame.loc[[i],'Angle':'Y_position']
-            Ypred = self.classifier.predict(Xdata)  # 分类工具
-            if (Ypred == 0):
+            Ydata = frame.at[i,'Target']
+            Ypred = self.classifier.predict(Xdata)      # 机器学习分类
+            if (Ypred == 0):#如果被分类为虚假点
+                if Ydata == 1:#如果将真实点分类为虚假点，则将这个错误分类点加入missPoint中
+                    missPoints = missPoints.append(frame.loc[[i]])
                 frame = frame.drop(i)
-        frame.index = range(frame.shape[0])
+        frame.index = range(frame.shape[0]) #将过滤后的frame信息的index重新排列
 
-        return frame
+        return frame,missPoints
 
     def showinfr(self):
         '''打印模型相关信息'''
@@ -126,7 +130,7 @@ class radar_ml():
 
 def main():
     Simupath = './radar_infor_sim/simufile'+ str(20)+'/frame_' + str(9) + '.txt'
-    names = ['Angle','Speed', 'Target', 'X_position','Y_position']
+    names = ['Angle','Speed', 'X_position','Y_position', 'Target']
     frame_infor = pd.read_csv(Simupath, sep=' ', names=names)
     ml = radar_ml('KNN')
     ml.Datasetproc(simu=True, scale_en= False, poly_en=False)
@@ -134,9 +138,10 @@ def main():
     ml.showinfr()
     print(frame_infor)
     print("original frame size:{}".format(frame_infor.shape[0]))
-    frame_infor = ml.Applicate(frame_infor)
+    frame_infor,missPoints = ml.Applicate(frame_infor)
     print(frame_infor)
     print("after frame size:{}".format(frame_infor.shape[0]))
+    print(missPoints)
 
 if __name__ == '__main__':
     main()
