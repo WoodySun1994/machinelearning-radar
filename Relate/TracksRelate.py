@@ -108,14 +108,14 @@ def TrackDelet(tmp_tracks_list,tmp_tracks_total):
 '''确定航迹坐标返回函数'''
 #绘制确定航迹
 # frame_infor 当前帧目标点信息
-def TrackPlotXY(frame_infor,tmp_tracks_list,delete_points):
+def TrackPlotXY(frame_infor,tmp_tracks_list,delete_points,mlMissPoints = None):
     plot_point_list = tmp_tracks_list[tmp_tracks_list['hung'] > 5]#选择出饥饿值大于5的所有点作为成功起始点
     fake_plot_list = plot_point_list[plot_point_list['Target']  == 0]#选择成功起始点中的错误关联点
     real_plot_list = plot_point_list[plot_point_list['Target']  == 1]#选择成功起始点中的正确关联点
 
     miss_plot_list1 = delete_points[delete_points['Target'] == 1]#选择删除的点中的正确点
     miss_plot_list2 = frame_infor[frame_infor['Target'] == 1]   #选择其中漏警的数据点
-    miss_plot_list = [miss_plot_list1,miss_plot_list2]
+    miss_plot_list = [miss_plot_list1,miss_plot_list2,mlMissPoints]
     miss_plot_list = pd.concat(miss_plot_list,ignore_index = True,sort=True)
 
     missx = miss_plot_list.loc[:,'X_position']
@@ -152,12 +152,12 @@ def DataProcs(RealData,total_simu = 30, total_frame = 10):
 
             count = i / (total_frame - 1) * 100
             process_output.write(f'\r PROCESSING percent:{count:.0f}%')
-            frame_infor = mlmodel.Applicate(frame_infor)
+            frame_infor,mlMissPoints = mlmodel.Applicate(frame_infor)
             [frame_infor, tmp_tracks_list] = TarckRelate(frame_infor, tmp_tracks_list, tmp_tracks_total)
             [tmp_tracks_list, tmp_tracks_total, delete_points] = TrackDelet(tmp_tracks_list, tmp_tracks_total)
             [tmp_tracks_list, tmp_tracks_total] = TrackDevelop(frame_infor, tmp_tracks_list, tmp_tracks_total)
 
-            [x, y, fakex, fakey, missx, missy] = TrackPlotXY(frame_infor, tmp_tracks_list, delete_points)
+            [x, y, fakex, fakey, missx, missy] = TrackPlotXY(frame_infor, tmp_tracks_list, delete_points,mlMissPoints=mlMissPoints)
 
             plt.scatter(x, y, s=15, c='r')
             plt.scatter(fakex, fakey, s=15, c='gray', marker='x')
@@ -170,7 +170,7 @@ def DataProcs(RealData,total_simu = 30, total_frame = 10):
         plt.pause(0)
 
 def main():
-    DataProcs(RealData = False,total_simu = 30,total_frame=10)
+    DataProcs(RealData = False,total_simu = 50,total_frame=10)
 
 if __name__ == '__main__':
     main()
