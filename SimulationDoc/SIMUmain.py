@@ -9,11 +9,11 @@
 import SimuGen
 
 def main():
-    for i in range(30):
-        SD = SimuGen.SimuData(autotesten = True)
-        SD.create_simu()
-        SD.save_simu(i)
-        # SD.show_simu()
+    for i in range(50):
+        simulinkData = SimuGen.SimuData(autoTestEn = True)
+        simulinkData.CreateSimu()
+        simulinkData.SaveSimu(i)
+        #simulinkData.ShowSimu()
 
 
 if __name__ == "__main__":
