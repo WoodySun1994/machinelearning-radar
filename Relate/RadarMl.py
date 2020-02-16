@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2019.12.26
-#功能：对雷达数据帧进行分类的相关函数
+更新：“2020.2.16
+#功能：机器学习模型训练和雷达数据帧分类函数
 #auther： woody sun
 '''
 import pandas as pd
@@ -85,7 +85,7 @@ class RadarML():
     def Train(self):
         '''模型训练'''
         if self.classifierName == 'KNN':
-            self.classifier = KNeighborsClassifier(n_neighbors=2)
+            self.classifier = KNeighborsClassifier(n_neighbors=5)
         elif self.classifierName == 'DTree':
             self.classifier = DecisionTreeClassifier(random_state = 0)
         elif self.classifierName == 'RForest':
@@ -101,10 +101,6 @@ class RadarML():
 
     def Applicate(self,frame):
         '''将训练好的模型应用于分类帧数据中的虚假点'''
-        # 将特征[''Angle',Speed','Target','X_position','Y_position',]重新排序为-> [''Angle',Speed','X_position','Y_position','Target']
-        #frame = frame.join(frame.pop('Angle'))
-        #frame = frame.join(frame.pop('Target'))
-        #frame.columns = ['Angle','Speed','X_position','Y_position','Target']
         missPoints = pd.DataFrame([],columns=['Angle','Speed','X_position','Y_position','Target'])
         for i in range(frame.shape[0]):
             featureData = frame.loc[[i],'Angle':'Y_position']
@@ -129,7 +125,7 @@ class RadarML():
         print("Test data accuracy : {}".format(self.testScore))
 
 def main():
-    simuPath = './radar_infor_sim/simufile'+ str(20)+'/frame_' + str(9) + '.txt'
+    simuPath = './radar_infor_sim/simufile'+ str(0)+'/frame_' + str(1) + '.txt'
     names = ['Angle','Speed', 'X_position','Y_position', 'Target']
     frameInfor = pd.read_csv(simuPath, sep=' ', names=names)
     ml = RadarML('KNN')
