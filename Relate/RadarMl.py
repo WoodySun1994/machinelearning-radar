@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2020.2.16
+更新：“2020.2.17
 #功能：机器学习模型训练和雷达数据帧分类函数
 #auther： woody sun
 '''
@@ -10,12 +10,14 @@ import pandas as pd
 import numpy as np
 import random
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import Normalizer
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
+import matplotlib.pyplot as plt
 
 class RadarML():
     def __init__(self,classifier = 'KNN'):
@@ -73,44 +75,53 @@ class RadarML():
         # 分离数据集
         self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(DATASET['data'], DATASET['Target'], random_state=0)
         if scale_en == True:  # 缩放数据
-            scaler = MinMaxScaler()
-            self.X_train = scaler.fit_transform(self.X_train)
-            self.X_test = scaler.fit_transform(self.X_test)
+            self.scaler = MinMaxScaler()
+            self.scaler.fit(self.X_train)
+            self.X_train = self.scaler.transform(self.X_train)
+            self.X_test = self.scaler.fit_transform(self.X_test)
 
         if poly_en == True:  # 提取多项式特征和交互特征
             poly = PolynomialFeatures(degree=3).fit(self.X_train)
             self.X_train = poly.transform(self.X_train)
             self.X_test = poly.transform(self.X_test)
 
-    def Train(self):
+    def Train(self,KnnNeighbors = 58,DTreeMaxDepth = 5,RForestNEstimators = 13,SVC_C = 10,SVCGamma = 2):
         '''模型训练'''
         if self.classifierName == 'KNN':
-            self.classifier = KNeighborsClassifier(n_neighbors=5)
+            self.classifier = KNeighborsClassifier(n_neighbors=KnnNeighbors)
         elif self.classifierName == 'DTree':
-            self.classifier = DecisionTreeClassifier(random_state = 0)
+            self.classifier = DecisionTreeClassifier(max_depth=DTreeMaxDepth,random_state = 0)
         elif self.classifierName == 'RForest':
-            self.classifier = RandomForestClassifier(n_estimator = 100,random_state=0)
+            self.classifier = RandomForestClassifier(n_estimators= RForestNEstimators,random_state=0)
         elif self.classifierName == 'SVM':
-            self.classifier = SVC(kernel = 'rbf',C=10,gamma=0.1)
+            self.classifier = SVC(kernel = 'rbf',C=SVC_C,gamma=SVCGamma)
         else:
             raise Exception("错误的分类器类别！")
 
         self.classifier.fit(self.X_train, self.Y_train)
         self.trainScore = self.classifier.score(self.X_train, self.Y_train)
         self.testScore = self.classifier.score(self.X_test, self.Y_test)
+        return self.testScore
 
-    def Applicate(self,frame):
+
+    def Applicate(self,frame, scale_en = True,poly_en = False):
         '''将训练好的模型应用于分类帧数据中的虚假点'''
         missPoints = pd.DataFrame([],columns=['Angle','Speed','X_position','Y_position','Target'])
         for i in range(frame.shape[0]):
             featureData = frame.loc[[i],'Angle':'Y_position']
+            if scale_en == True:  # 缩放数据
+                featureData = self.scaler.transform(featureData)
+
+            if poly_en == True:  # 提取多项式特征和交互特征
+                poly = PolynomialFeatures(degree=3).fit(featureData)
+                featureData = poly.transform(featureData)
+
             tagData = frame.at[i,'Target']
             tagPred = self.classifier.predict(featureData)      # 机器学习分类
             if (tagPred == 0):#如果被分类为虚假点
                 if tagData == 1:#如果将真实点分类为虚假点，则将这个错误分类点加入missPoint中
                     missPoints = missPoints.append(frame.loc[[i]])
                 frame = frame.drop(i)
-        frame.index = range(frame.shape[0]) #将过滤后的frame信息的index重新排列
 
         return frame,missPoints
 
@@ -125,16 +136,25 @@ class RadarML():
         print("Test data accuracy : {}".format(self.testScore))
 
 def main():
-    simuPath = './radar_infor_sim/simufile'+ str(0)+'/frame_' + str(1) + '.txt'
+    simuPath = './radar_infor_sim/simufile'+ str(0)+'/frame_' + str(3) + '.txt'
     names = ['Angle','Speed', 'X_position','Y_position', 'Target']
     frameInfor = pd.read_csv(simuPath, sep=' ', names=names)
-    ml = RadarML('KNN')
-    ml.DatasetProc(simu=True, scale_en= False, poly_en=False)
-    ml.Train()
+    ml = RadarML('SVM')
+    scaler = ml.DatasetProc(simu=True, scale_en= True, poly_en=False)
+
+    # testScore = []
+    # for x in np.arange(0.1, 20, 1):
+    #     testScore.append(ml.Train(KnnNeighbors = x, DTreeMaxDepth = x,RForestNEstimators = x,SVC_C= x))
+    # xRange = np.arange(0.1,20, 1)
+    # plt.plot(xRange, testScore)
+    # plt.show()
+    # plt.pause(0)
+
+    ml.Train(KnnNeighbors=58)
     ml.ShowModelInfr()
     print(frameInfor)
     print("original frame size:{}".format(frameInfor.shape[0]))
-    frameInfor,missPoints = ml.Applicate(frameInfor)
+    frameInfor,missPoints = ml.Applicate(frameInfor, scale_en = True, poly_en=False)
     print(frameInfor)
     print("after frame size:{}".format(frameInfor.shape[0]))
 
