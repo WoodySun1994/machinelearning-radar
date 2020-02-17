@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2020.2.16
+更新：“2020.2.17
 #功能：仿真帧数据产生函数
 #auther： woody sun
 '''
@@ -12,10 +12,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import random
 import os
-
+import math
 
 AUTOTESTEN = True   #自动测试
-AUTOTESTSET = {'realTrackNum': 6, 'fakeTrackNum':50, 'frameNum':3}
+AUTOTESTSET = {'realTrackNum': 6, 'fakeTrackNum':60, 'frameNum':4}
 DefaultData = True #使用默认起始点
 
 '''根据path参数新建文件夹'''
@@ -29,12 +29,12 @@ def MkDir(path):
 '''自动测试数据生成器，输入参数为需要产生的真实航迹数量'''
 def AutoTestDataGen(DefaultData,realTrackNum):
     if DefaultData == True:
-        autoTestData = [{'movType': 'UT', "x": -6.5, "y": 10.0, 'speed': 13.5/20, 'angle': -10, 'accelerate': 0},
-                        {'movType': 'UT', "x": 4.5, "y": 31.0, 'speed': 17.5/20, 'angle': 8, 'accelerate': 0},
-                        {'movType': 'AL', "x": 1.3, "y": 27.0, 'speed': 15.5/20, 'angle': 2, 'accelerate': 0.84/20},
-                        {'movType': 'AL', "x": -6.0, "y": 36.0, 'speed': 12/20, 'angle': 7, 'accelerate': 1.99/20},
-                        {'movType': 'UL', "x": -4.0, "y": 34.0, 'speed': 19/20, 'angle': 0, 'accelerate': 0},
-                        {'movType': 'UL', "x": 6.5, "y": 25.0, 'speed': 19.5/20, 'angle': 10, 'accelerate': 0}
+        autoTestData = [{'movType': 'UT', "x": -6.5, "y": 10.0, 'speed': 13.5/20, 'posAngle':round(math.atan(-6.5/10.0), 3), 'accelerate': 0,'movAngle':-9.8},
+                        {'movType': 'UT', "x": 4.5, "y": 31.0, 'speed': 17.5/20, 'posAngle': round(math.atan(4.5/31.0), 3), 'accelerate': 0,'movAngle':8},
+                        {'movType': 'AL', "x": 1.3, "y": 39.0, 'speed': 18.5/20, 'posAngle': round(math.atan(1.3/39.0), 3), 'accelerate': 0.84/20,'movAngle':2},
+                        {'movType': 'AL', "x": -6.0, "y": 36.0, 'speed': 12/20, 'posAngle': round(math.atan(-6.0/36.0), 3), 'accelerate': 1.99/20,'movAngle':-7},
+                        {'movType': 'UL', "x": -4.0, "y": 34.0, 'speed': 19/20, 'posAngle': round(math.atan(-4.0/34.0), 3), 'accelerate': 0,'movAngle':0},
+                        {'movType': 'UL', "x": 6.5, "y": 25.0, 'speed': 19.5/20, 'posAngle': round(math.atan(6.5/25.0), 3), 'accelerate': 0,'movAngle':9.4}
                         ]
     else:
         autoTestData  = []
@@ -45,24 +45,25 @@ def AutoTestDataGen(DefaultData,realTrackNum):
                 point["movType"] = moveType[i]
             else:
                 point["movType"] = random.choice(['UT','AL','UL'])  #随机选择三种运动模型
-            point["y"] = 40 * round(random.random(),2)
+            point["y"] = 35 * round(random.random(),2) + 5
             if point["y"] > 25:#根据目标的距离限制目标出现区域
                 point["x"] = 7.5 * round(random.uniform(-1, 1), 2)
-                point["angle"] = 10 * round(random.uniform(-1, 1), 3)  # 横坐标轴上方远处的目标运动角度满足-10-10°的均匀分布
+                point["movAngle"] = 10 * round(random.uniform(-1, 1), 3)  # 横坐标轴上方远处的目标运动角度满足-10-10°的均匀分布
             else:
                 point["x"] = 6.5 + round(random.uniform(-0.5, 0.5), 2)
                 targetPosition = random.choice(['left','right'])
                 if targetPosition == 'left':
                     point["x"] *= -1
-                    point["angle"] = 10 * round(random.uniform(-1, 0), 3)  # 纵坐标轴左边的目标运动角度满足-10-0°的均匀分布
+                    point["movAngle"] = 10 * round(random.uniform(-1, 0), 3)  # 纵坐标轴左边的目标运动角度满足-10-0°的均匀分布
                 else:# 纵坐标轴左边的目标运动角度满足0-10°的均匀分布
-                    point["angle"] = 10 * round(random.uniform(0, -1), 3)
+                    point["movAngle"] = 10 * round(random.uniform(0, 1), 3)
             point["speed"] = 10 * round(random.uniform(1,2),2) / 20    #速度满足10-20m/s的均匀分布，雷达扫描频率T为0.05s
 
             if point["movType"] == 'AL':
                 point["accelerate"]  = round(0.5 * random.uniform(1,4),2) / 20   #加速度满足0.5m-2m/s的均匀分布，雷达扫描频率T为0.05s
             else:
                 point["accelerate"] = 0
+            point["posAngle"] = round(math.atan(point["x"]/(point["y"] + 0.0001)), 3)
             autoTestData.append(point)
     return autoTestData
 
@@ -89,7 +90,7 @@ class FrameInfor:
                     print("第", i + 1, "个航迹的初始速度：", end='')
                     speed = float(input())
                     print("第", i + 1, "个航迹的运动角度(-0.2~0.2)：", end='')
-                    angle = float(input())
+                    movAngle = float(input())
                     if movType == 'AL':
                         print("第", i + 1, "个航迹的加速度：", end='')
                         accelerate = float(input())
@@ -101,10 +102,10 @@ class FrameInfor:
                     x = autoTestData[i]["x"]
                     y = autoTestData[i]["y"]
                     speed = autoTestData[i]["speed"]
-                    angle = autoTestData[i]["angle"]
+                    movAngle = autoTestData[i]["movAngle"]
                     accelerate = autoTestData[i]["accelerate"]
 
-                RP = Point.RealPtGenerator(x, y, movType, speed, accelerate, angle)#根据第一帧运动产生真实点迹
+                RP = Point.RealPtGenerator(x, y, movType, speed, accelerate, movAngle)#根据第一帧运动产生真实点迹
                 self.pointsList.append(RP)
 
             for i in range(int(self.fakeTrackNum)):   #根据设置的每帧虚假点个数生成虚假点
@@ -117,7 +118,7 @@ class FrameInfor:
     def CreatFrame(self):
         for point in self.lastFrame.pointsList:
             if point.flag == 1:  #如果当前点为真实点，则将改点传入对应的真实点产生函数中
-                RP = Point.RealPtGenerator(point.x, point.y, point.moveType, point.speed,point.accelerate,point.angle)
+                RP = Point.RealPtGenerator(point.x, point.y, point.moveType, point.speed,point.accelerate,point.movAngle)
                 self.pointsList.append(RP)
 
             else:#如果当前点为虚假点，则调用虚假点产生函数
@@ -127,7 +128,7 @@ class FrameInfor:
     '''显示帧信息（调试用）'''
     def ShowFrame(self):
         for point in self.pointsList:
-            print("(x,y): (",point.x,",",point.y,")" , "   speed:" , point.speed , "  angle:" ,point.angle)
+            print("(x,y): (",point.x,",",point.y,")" , "   speed:" , point.speed , "  movAngle:" ,point.movAngle)
             plt.scatter(point.x, point.y, c=point.color)
 
         plt.xlim((-8, 8))
@@ -140,15 +141,16 @@ class FrameInfor:
         for point in self.pointsList:
             '''Angle, Speed, X_position, Y_position, Target'''
             point = self.AddNoise(point)   #加入观测噪声
-            saveData.append([point.angle,point.speed,point.x, point.y,point.flag])
+            saveData.append([point.posAngle,point.speed,point.x, point.y,point.flag])
         savePath = "./simufile"+str(simuNO)+"/frame_" + str(self.frameNo) + '.txt'
         np.savetxt(savePath,saveData,fmt='%.3f')
 
     '''加入距离与角度测量误差'''
     def AddNoise(self,point):
-        #point.x = point.x + round(random.gauss(mu=0,sigma=0.1),2)
-        point.y = point.y + round(random.gauss(mu=0, sigma=0.2),2) #距离参数误差符合mu=0,sigma=0.2的高斯分布
-        point.angle = point.angle + round(random.gauss(mu=0, sigma=0.1),3)#角度参数误差符合mu=0,sigma=0.1的高斯分布
+        point.x = point.x + round(random.gauss(mu=0,sigma=0.1),2)
+        point.y = point.y + round(random.gauss(mu=0, sigma=0.1),2) #距离参数误差符合mu=0,sigma=0.1的高斯分布
+        point.posAngle = round(math.atan(point.x / (point.y + 0.0001)), 3)
+        point.posAngle = point.posAngle + round(random.gauss(mu=0, sigma=0.1),3)#角度参数误差符合mu=0,sigma=0.1的高斯分布
         return point
 
 '''仿真文件生成类'''
@@ -205,4 +207,3 @@ class SimuData:
         MkDir(simuPath)
         for frame in self.frame:
             frame.SaveFrame(simuNO)
-
