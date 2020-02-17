@@ -1,0 +1,100 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+'''
+更新：“2020.2.17
+#功能：航迹起始_直观法
+#auther： woody sun
+'''
+
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+import sys
+import Frame
+
+'''最邻近算法'''
+# 在从量测波们内选取离输入坐标点距离最近的量测
+#输入：tmpRelatePoints落在量测波门内候选点迹   lastXPos，lastYPos该航迹上一量测的坐标
+#输出：tmpRelatePoints.iloc[[pointNo]]  选取到的最临近点
+def NN(tmpRelatePoints, lastXPos, lastYPos):
+    dis = math.pow(tmpRelatePoints.iloc[0].loc['X_position'] - lastXPos, 2) + math.pow(tmpRelatePoints.iloc[0].loc['Y_position'] - lastYPos,2)
+    pointNo = 0
+    for i in range(1, tmpRelatePoints.shape[0]):
+        dis1 = math.pow(tmpRelatePoints.iloc[i].loc['X_position'] - lastXPos, 2) + math.pow(tmpRelatePoints.iloc[i].loc['Y_position'] - lastYPos, 2)
+        if dis1 < dis:
+            dis = dis1
+            pointNo = i
+    return tmpRelatePoints.iloc[[pointNo]]
+
+'''直观法航迹起始'''
+# 航迹起始直观法函数
+#输入：totalSimuFile需要的仿真次数   totalFramePerSimu每个仿真文件的数据帧数
+#输出：无
+def IntuitiveMethod(totalSimuFile = 1, totalFramePerSimu = 4):
+    for simuFileNo in range(totalSimuFile):  # 对每一个仿真文件进行航迹关联处理
+        processOutput = sys.stdout  # 标准图像输出
+        plt.figure(figsize=(5, 40), dpi=100)  # 设置输出图像画布大小
+        plt.vlines(x=[-5.5, -1.8, 1.8, 5.5], ymin=0, ymax=40, colors='yellow')  # 画出车道线
+
+        firstFrameInfor = Frame.SimuFrameRead(simuFileNo, 0)
+        for frameNo in range(1,totalFramePerSimu):  # 从文件中读取每帧量测
+            count = frameNo / (totalFramePerSimu - 1) * 100  # 计算显示每个仿真文件的处理进程
+            processOutput.write(f'\r PROCESSING percent:{count:.0f}%')
+
+            secondFrameInfor = Frame.SimuFrameRead(simuFileNo, frameNo)
+            #遍历第一帧内所有点，并检查第二帧是否有落入其速度波门内的点
+            for pointNo in  firstFrameInfor.index:
+                speed = firstFrameInfor.at[pointNo, 'Speed']
+                X_position = firstFrameInfor.at[pointNo, 'X_position']
+                Y_position = firstFrameInfor.at[pointNo, 'Y_position']
+
+                # 寻找当前临时航迹速度与距离波门内所有目标点
+                tmp = secondFrameInfor[(secondFrameInfor['Speed'] > speed - 0.15) & (secondFrameInfor['Speed'] < speed + 0.15)]  # 速度波门限值
+                tmp = tmp[(tmp['X_position'] > X_position - 0.6) & (tmp['X_position'] < X_position + 0.6)]  # 距离波门限值
+                tmp = tmp[(tmp['Y_position'] > Y_position - 2) & (tmp['Y_position'] < Y_position + 0.2)]
+
+                if tmp.shape[0] == 0:  #当没有目标落在波门范围内时
+                    if firstFrameInfor.at[pointNo, 'Target'] == 1:
+                        plt.scatter(firstFrameInfor.at[pointNo, 'X_position'],
+                                    firstFrameInfor.at[pointNo, 'Y_position'],
+                                    s=35, marker='<', c='green')  # 绘制漏警点
+                    continue
+                elif tmp.shape[0] > 1:  # 当有多个目标在波门范围内时，使用最邻近算法，选取波门内最近的目标点
+                    tmp = NN(tmp, firstFrameInfor.at[pointNo, 'X_position'],firstFrameInfor.at[pointNo, 'Y_position'])  # 最邻近算法
+                #画出点迹
+                tmp.index =range(tmp.shape[0])
+                linex = [firstFrameInfor.at[pointNo, 'X_position'], tmp.at[0, 'X_position']]
+                liney = [firstFrameInfor.at[pointNo, 'Y_position'], tmp.at[0, 'Y_position']]
+                plt.plot(linex, liney, c='black')
+
+                if tmp.at[0,'Target'] == 0:# 绘制误连点
+                    plt.scatter(tmp.at[0, 'X_position'], tmp.at[0, 'Y_position'],
+                                s=35, marker= 'x',c='gray')
+                else:
+                    plt.scatter(tmp.at[0, 'X_position'], tmp.at[0, 'Y_position'],
+                                s=25, c='red')# 绘制正确点
+                if firstFrameInfor.at[pointNo, 'Target'] == 1:
+                    plt.scatter(firstFrameInfor.at[pointNo, 'X_position'], firstFrameInfor.at[pointNo, 'Y_position'], s=25,
+                                c='r')  # 绘制正确点
+                else:
+                    plt.scatter(firstFrameInfor.at[pointNo, 'X_position'], firstFrameInfor.at[pointNo, 'Y_position'],
+                                s=25, marker= 'x',c='gray')  # 绘制误连点
+            firstFrameInfor = secondFrameInfor
+
+        processOutput.flush
+        plt.xlim((-7, 7))  # 坐标属性设置
+        plt.ylim((0, 40))
+        plt.xlabel("X(m)")
+        plt.ylabel("Y(m)")
+        plt.show()
+        plt.pause(0)  # 暂停显示关联结果
+    return
+
+def main():
+    IntuitiveMethod(totalSimuFile = 6, totalFramePerSimu = 4)
+
+if __name__ == '__main__':
+    main()
