@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2020.2.16
+更新：“2020.2.17
 #功能：航迹关联算法
 #auther： woody sun
 '''
@@ -65,18 +65,22 @@ def NN(tmpRelatePoints, lastXPos, lastYPos):
 # 将当前帧落入波门中的点与已经存在的临时航迹列表进行比较，返回匹配后的航迹号，并更新临时保存点列表。若无匹配航迹则返回-1
 #输入：frameInfor当前帧所有量测点信息   tmpTracksList临时航迹列表   totalTmpTracks临时航迹数量    tmpStoragePoints临时点信息列表  totalTmpStoragePoints临时点个数
 #输出：更新后的[frameInfor,tmpTracksList,tmpStoragePoints,totalTmpStoragePoints]
-def TrackRelate(frameInfor,tmpTracksList, totalTmpTracks, tmpStoragePoints, totalTmpStoragePoints):
+def TrackRelate(frameInfor,tmpTracksList, totalTmpTracks, tmpStoragePoints, totalTmpStoragePoints,mlModel = None,machineLearnEnable = True):
     TrackRelaNo = -1
     tmpTracksList['RelateFlag'] = 0  #所有临时航迹关联标志位置0
+    # mlMissPoints = pd.DataFrame([], columns=['Angle', 'Speed', 'X_position', 'Y_position', 'Target'])
     for tmpTrackNo in range(totalTmpTracks):                                #与临时航迹列表所有目标相继匹配
         speed = tmpTracksList.at[tmpTrackNo, 'Speed']
         X_position = tmpTracksList.at[tmpTrackNo, 'X_position']
         Y_position = tmpTracksList.at[tmpTrackNo, 'Y_position']
 
         #寻找当前临时航迹速度与距离波门内所有目标点
-        tmp = frameInfor[(frameInfor['Speed'] > speed - 2) & (frameInfor['Speed'] < speed + 2)]#速度波门限值
-        tmp = tmp[(tmp['X_position'] > X_position - 1) & (tmp['X_position'] < X_position + 1)]      #距离波门限值
-        tmp = tmp[(tmp['Y_position'] > Y_position - 2) & (tmp['Y_position'] < Y_position + 0.5)]
+        tmp = frameInfor[(frameInfor['Speed'] > speed - 0.7) & (frameInfor['Speed'] < speed + 0.7)]#速度波门限值
+        tmp = tmp[(tmp['X_position'] > X_position - 0.7) & (tmp['X_position'] < X_position + 0.7)]      #距离波门限值
+        tmp = tmp[(tmp['Y_position'] > Y_position - 2) & (tmp['Y_position'] < Y_position + 0.2)]
+
+        # if machineLearnEnable == True and tmp.shape[0] >1: #当有多个目标在波门范围内时，使用机器学习算法分类
+        #      tmp, mlMissPoints = mlModel.Applicate(tmp,scale_en = True)
 
         if tmp.shape[0] == 0:  #当没有目标落在波门范围内时
             tmpTracksList.iloc[[tmpTrackNo], 0] = - 1   # 未匹配成功的航迹饥饿值-1
@@ -90,6 +94,7 @@ def TrackRelate(frameInfor,tmpTracksList, totalTmpTracks, tmpStoragePoints, tota
             TrackRelaNo = tmpTracksList.index[tmpTrackNo]                                       #返回匹配上的航迹在临时列表中的航迹号
         elif tmp.shape[0] >1: #当有多个目标在波门范围内时，使用最邻近算法，选取波门内最近的目标，并返回匹配上的航迹号
             TrackRelaNo = tmpTracksList.index[tmpTrackNo]
+            # tmp, mlMissPoints = mlModel.Applicate(tmp,scale_en = True)
             tmp = NN(tmp, tmpTracksList.at[tmpTrackNo, 'X_position'], tmpTracksList.at[tmpTrackNo, 'Y_position'])#最邻近算法
 
         tmpTracksList.iat[TrackRelaNo, 6] = 1  # 将关联成功标志位置1
@@ -153,7 +158,7 @@ def TrackDelet(tmpTracksList,totalTmpTracks, tmpStoragePoints, totalTmpStoragePo
         else:
             shiftValue += 1
 
-    tmpStoragePoints = tmpStoragePoints.head(pointsPointer-1)   #选取调整了航迹号的这些临时点
+    tmpStoragePoints = tmpStoragePoints.head(pointsPointer)   #选取调整了航迹号的这些临时点
     totalTmpStoragePoints = tmpStoragePoints.shape[0]           #更新临时点个数
 
     delete_points = tmpTracksList[tmpTracksList['hung'] < 0]    #选择临时航迹中所有饥饿值小于0的点作为删除的点
@@ -201,11 +206,13 @@ def TrackDraw(frameInfor,tmpTracksList, tmpStoragePoints, totalTmpStoragePoints,
 
     missPlotPoints1 = delete_points[delete_points['Target'] == 1]#选择航迹起始失败的点中的正确点
     missPlotPoints2 = frameInfor[frameInfor['Target'] == 1]      #选择其中漏警的数据点
-    missPlotPoints = [missPlotPoints1,missPlotPoints2,mlMissPoints]#加入机器学习错误分类的点
+    missPlotPoints = [missPlotPoints1,missPlotPoints2]
+
 
     missPlotPoints = pd.concat(missPlotPoints,ignore_index = True,sort = True)
 
     #绘制各类点
+    plt.scatter(mlMissPoints.loc[:, 'X_position'], mlMissPoints.loc[:, 'Y_position'], s=25, c='blue',marker = '>')
     plt.scatter(correctPlotPoints.loc[:,'X_position'], correctPlotPoints.loc[:,'Y_position'], s=25, c='r')
     plt.scatter(wrongPlotPoints.loc[:,'X_position'], wrongPlotPoints.loc[:,'Y_position'], s=25, c='gray', marker='x')
     plt.scatter(missPlotPoints.loc[:,'X_position'], missPlotPoints.loc[:,'Y_position'], s=15, c='green', marker='<')
@@ -218,18 +225,19 @@ def TrackDraw(frameInfor,tmpTracksList, tmpStoragePoints, totalTmpStoragePoints,
 # 输入： totalSimuFile 仿真文件数, totalFramePerSimu 仿真文件数据帧数
 # 输出： 无
 def RadarDataRelateBasedonMachineLearning(realData = False, machineLearnEnable = False,mlModelType = 'KNN', totalSimuFile = 30, totalFramePerSimu = 10):
+    mlModel = None
     if machineLearnEnable == True:#训练机器学习模型
         mlModel = RadarMl.RadarML(mlModelType)
-        mlModel.DatasetProc(simu=True,scale_en= False, poly_en=False)
+        mlModel.DatasetProc(simu=True,scale_en= True, poly_en=False)
         mlModel.Train()
     if realData == True:#如果利用真实航迹作为数据源，则需要将真实数据进行分帧处理
         Frame.FrameCreat(save_en=True, plot_en=True, fakerate=50, sample_rate=5)
 
-    processOutput = sys.stdout                  # 标准图像输出
-    plt.figure(figsize=(5, 40), dpi=100)        #设置输出图像画布大小
-    plt.vlines(x=[-5.5, -1.8, 1.8, 5.5], ymin=0, ymax=40, colors='yellow')  # 画出车道线
-
     for simuFileNo in range(totalSimuFile):    #对每一个仿真文件进行航迹关联处理
+        processOutput = sys.stdout  # 标准图像输出
+        plt.figure(figsize=(5, 40), dpi=100)  # 设置输出图像画布大小
+        plt.vlines(x=[-5.5, -1.8, 1.8, 5.5], ymin=0, ymax=40, colors='yellow')  # 画出车道线
+
         tmpTracksList, totalTmpTracks = tmpTracksListInit()               #初始化临时航迹列表
         tmpStoragePoints,totalTmpStoragePoints = tmpStoragePointsInit()   #初始化临时点迹列表
 
@@ -243,12 +251,11 @@ def RadarDataRelateBasedonMachineLearning(realData = False, machineLearnEnable =
             processOutput.write(f'\r PROCESSING percent:{count:.0f}%')
 
             if machineLearnEnable == True:#机器学习模型应用于雷达量测分类
-                frameInfor, mlMissPoints = mlModel.Applicate(frameInfor)  
+                frameInfor, mlMissPoints = mlModel.Applicate(frameInfor,scale_en=True)
             else:
-                mlMissPoints = pd.DataFrame([],columns=['Angle','Speed','X_position','Y_position','Target'])
-
+                mlMissPoints  = pd.DataFrame([],columns=['Angle','Speed','X_position','Y_position','Target'])
             #对雷达量测进行航迹关联
-            [frameInfor, tmpTracksList, tmpStoragePoints, totalTmpStoragePoints] = TrackRelate(frameInfor, tmpTracksList, totalTmpTracks, tmpStoragePoints, totalTmpStoragePoints)
+            [frameInfor, tmpTracksList, tmpStoragePoints, totalTmpStoragePoints] = TrackRelate(frameInfor, tmpTracksList, totalTmpTracks, tmpStoragePoints, totalTmpStoragePoints,mlModel,machineLearnEnable = machineLearnEnable)
             #删除关联失败的航迹信息
             [tmpTracksList, totalTmpTracks, tmpStoragePoints, totalTmpStoragePoints, delete_points] = TrackDelet(tmpTracksList, totalTmpTracks, tmpStoragePoints, totalTmpStoragePoints)
             #没有正确关联的点作为新航迹
@@ -266,7 +273,7 @@ def RadarDataRelateBasedonMachineLearning(realData = False, machineLearnEnable =
     return
 
 def main():
-    RadarDataRelateBasedonMachineLearning(realData = False,machineLearnEnable = False,mlModelType = 'KNN', totalSimuFile = 1,totalFramePerSimu=4)
+    RadarDataRelateBasedonMachineLearning(realData = False,machineLearnEnable = False,mlModelType = 'SVM', totalSimuFile = 6,totalFramePerSimu=4)
 
 if __name__ == '__main__':
     main()
