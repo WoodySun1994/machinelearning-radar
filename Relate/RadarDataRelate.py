@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2020.2.17
+更新：“2020.2.19
 #功能：航迹关联算法
 #auther： woody sun
 '''
@@ -14,6 +14,7 @@ import math
 import sys
 import Frame
 import RadarMl
+from scipy import stats
 
 '''初始化临时航迹列表'''
 def tmpTracksListInit():
@@ -70,14 +71,34 @@ def TrackRelate(frameInfor,tmpTracksList, totalTmpTracks, tmpStoragePoints, tota
     tmpTracksList['RelateFlag'] = 0  #所有临时航迹关联标志位置0
     # mlMissPoints = pd.DataFrame([], columns=['Angle', 'Speed', 'X_position', 'Y_position', 'Target'])
     for tmpTrackNo in range(totalTmpTracks):                                #与临时航迹列表所有目标相继匹配
-        speed = tmpTracksList.at[tmpTrackNo, 'Speed']
         X_position = tmpTracksList.at[tmpTrackNo, 'X_position']
         Y_position = tmpTracksList.at[tmpTrackNo, 'Y_position']
+        speed = tmpTracksList.at[tmpTrackNo, 'Speed']
+        expectPosAngle = tmpTracksList.at[tmpTrackNo, 'Angle']
+        expectXPosition = X_position
+        expectYposition = Y_position-speed
+        expectSpeed = speed
 
-        #寻找当前临时航迹速度与距离波门内所有目标点
-        tmp = frameInfor[(frameInfor['Speed'] > speed - 0.7) & (frameInfor['Speed'] < speed + 0.7)]#速度波门限值
-        tmp = tmp[(tmp['X_position'] > X_position - 0.7) & (tmp['X_position'] < X_position + 0.7)]      #距离波门限值
+
+        #寻找当前临时航迹距离波门内所有目标点
+        tmp = frameInfor[(frameInfor['X_position'] > X_position - 0.6) & (frameInfor['X_position'] < X_position + 0.6)]#距离波门限值
         tmp = tmp[(tmp['Y_position'] > Y_position - 2) & (tmp['Y_position'] < Y_position + 0.2)]
+
+        minChiIndex = 0
+        freedomDegree = 4-1#自由度
+        minChisquare = 7.81#卡方分布，自由度为3，Alpha = 0.05时，查表得到门限卡方值为7.81
+        for i in tmp.index:
+            #计算卡方值
+            chisquare = ((tmp.at[i,'X_position'] - expectXPosition) ** 2)/(expectXPosition) + ((tmp.at[i,'Y_position'] - expectYposition) ** 2)/(expectYposition) \
+                        + ((5*tmp.at[i,'Angle'] - 5*expectPosAngle) ** 2)/(expectPosAngle) + ((2*tmp.at[i,'Speed'] - 2*expectSpeed) ** 2)/(expectSpeed)
+            if chisquare < minChisquare:
+                minChisquare = chisquare
+                minChiIndex = i
+
+        if minChisquare < 7.81: #当至少有一个点的方差小于门限卡方值时
+            tmp = tmp[tmp.index == minChiIndex]
+        else:  #成功关联点的个数为0
+            tmp = pd.DataFrame([], columns=['Angle', 'Speed', 'X_position', 'Y_position', 'Target'])
 
         # if machineLearnEnable == True and tmp.shape[0] >1: #当有多个目标在波门范围内时，使用机器学习算法分类
         #      tmp, mlMissPoints = mlModel.Applicate(tmp,scale_en = True)
@@ -94,7 +115,7 @@ def TrackRelate(frameInfor,tmpTracksList, totalTmpTracks, tmpStoragePoints, tota
             TrackRelaNo = tmpTracksList.index[tmpTrackNo]                                       #返回匹配上的航迹在临时列表中的航迹号
         elif tmp.shape[0] >1: #当有多个目标在波门范围内时，使用最邻近算法，选取波门内最近的目标，并返回匹配上的航迹号
             TrackRelaNo = tmpTracksList.index[tmpTrackNo]
-            # tmp, mlMissPoints = mlModel.Applicate(tmp,scale_en = True)
+            print("NN")
             tmp = NN(tmp, tmpTracksList.at[tmpTrackNo, 'X_position'], tmpTracksList.at[tmpTrackNo, 'Y_position'])#最邻近算法
 
         tmpTracksList.iat[TrackRelaNo, 6] = 1  # 将关联成功标志位置1
