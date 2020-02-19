@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-更新：“2019.12.24
+更新：“2020.2.19
 #功能：绘制航迹并保存为GIF，输入为txt文件。内容顺序格式为：[ 'Speed', 'Angle','X_position', 'Y_position',  'Target']
 #auther： woody sun
 '''
@@ -10,14 +10,18 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import pandas as pd
 
-fig,ax = plt.subplots()
+fig,ax = plt.subplots(figsize = (5,40),dpi = 100)
 xData, yData = [], []
 trueLine,  = plt.plot([],[],'o',color = 'red', animated = True)
 fakeLine, = plt.plot([],[],'o',color = 'gray', markersize = 2,animated = True)
 
 def Init():
     '''动画对象初始化函数'''
-    ax.set_xlim(-30,30)
+    # plt.figure(figsize=(5, 40), dpi=100)  # 设置输出图像画布大小
+    plt.vlines(x=[-5.5, -1.8, 1.8, 5.5], ymin=0, ymax=40, colors='yellow')  # 画出车道线
+    plt.xlabel("X(m)")
+    plt.ylabel("Y(m)")
+    ax.set_xlim(-7,7)
     ax.set_ylim(0,40)
     return trueLine,fakeLine,
 
@@ -40,9 +44,9 @@ def Update(frames):
 
 
 def main():
-    anim = animation.FuncAnimation(fig, Update, frames=range(10), interval=400, init_func=Init,blit=True)
+    anim = animation.FuncAnimation(fig, Update, frames=range(4), interval=400, init_func=Init,blit=True)
     plt.show()
-    anim.save('simu0.gif', writer='imagemagick')
+    anim.save('simu5.gif', writer='imagemagick')
 
 if __name__ == '__main__':
     main()
